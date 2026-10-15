@@ -26,7 +26,7 @@ import io.github.ryukadev.cratecinema.engine.ShowRound;
 import io.github.ryukadev.cratecinema.engine.Timeline;
 
 /**
- * Rift: a glowing tear opens above the crate. Rewards from the pool drift around it and are pulled
+ * Rift: a portal tear opens above the crate. Rewards from the pool drift around it and are pulled
  * in one by one; the tear throbs in the reward's rarity colour, pushes the reward out towards the
  * viewer, and seals.
  *
@@ -49,7 +49,9 @@ public final class RiftShow implements Show {
     private static final class Instance implements ShowInstance {
 
         private static final Color RIFT_GLOW = Color.fromRGB(170, 60, 255);
-        private static final float DEPTH = 0.05F;
+        /** The portal block's own model is a thin sheet, so this mostly sets the sheet's thickness. */
+        private static final float DEPTH = 0.2F;
+        private static final int PUSH_TICKS = 6;
         private static final float DEBRIS_SCALE = 0.35F;
         private static final int MAX_DEBRIS = 8;
         /** How far towards the viewer the reward is pushed out. */
@@ -85,7 +87,8 @@ public final class RiftShow implements Show {
             this.front = this.center.clone().add(context.towardViewer().multiply(PUSH));
 
             this.rift = context.spawn(this.center, BlockDisplay.class, display -> {
-                display.setBlock(Material.CRYING_OBSIDIAN.createBlockData());
+                // Axis x: the portal sheet lies across the x-y plane, which the billboard turns to face the viewer.
+                display.setBlock(Material.NETHER_PORTAL.createBlockData("[axis=x]"));
                 display.setBillboard(Display.Billboard.VERTICAL);
                 display.setBrightness(new Display.Brightness(15, 15));
                 display.setGlowing(true);
@@ -111,6 +114,8 @@ public final class RiftShow implements Show {
             this.hero = context.spawn(this.center, ItemDisplay.class, display -> {
                 display.setItemStack(this.target.icon());
                 display.setBillboard(Display.Billboard.CENTER);
+                // Sent with the spawn, so the later push out is interpolated rather than a snap.
+                display.setTeleportDuration(PUSH_TICKS);
                 display.setTransformation(Displays.at(0, 0, 0, 0));
             });
             this.label = Reveal.label(context, this.front, this.target, 0, this.revealScale);
@@ -192,15 +197,14 @@ public final class RiftShow implements Show {
                     this.hero.setGlowing(true);
                     this.hero.setGlowColorOverride(Reveal.color(this.target));
                 }
-                this.hero.setTeleportDuration(6);
                 this.hero.teleport(this.front);
-                Displays.animate(this.hero, Displays.at(0, 0, 0, this.revealScale * 1.25F), 6);
+                Displays.animate(this.hero, Displays.at(0, 0, 0, this.revealScale * 1.25F), PUSH_TICKS);
                 Displays.animate(this.rift, slit(0, this.height), 8);
                 Reveal.burst(this.context, this.front, 0, this.target, this.tier);
                 Reveal.fanfare(this.context, this.tier);
                 this.context.sound(Sound.ENTITY_ENDERMAN_TELEPORT, 0.6F, 0.6F);
             });
-            this.timeline.at(revealAt + 6, () -> Displays.animate(this.hero, Displays.at(0, 0, 0, this.revealScale), 6));
+            this.timeline.at(revealAt + PUSH_TICKS, () -> Displays.animate(this.hero, Displays.at(0, 0, 0, this.revealScale), 6));
             this.timeline.at(revealAt + 4, this.label::grow);
             this.timeline.at(revealAt + 9, () -> this.context.remove(this.rift));
 

@@ -173,15 +173,15 @@ public final class StarfallShow implements Show {
                 display.setBlock(Material.MAGMA_BLOCK.createBlockData());
                 display.setBrightness(new Display.Brightness(15, 15));
                 display.setTransformation(spun(size, 0));
+                // Must reach the client with the spawn: position updates are sent before metadata,
+                // so a duration set alongside the teleport would arrive too late and the rock would snap.
+                display.setTeleportDuration(fallTicks);
                 if (glow != null) {
                     display.setGlowing(true);
                     display.setGlowColorOverride(glow);
                 }
             }));
-            this.timeline.at(launch + 1, () -> {
-                rock[0].setTeleportDuration(fallTicks);
-                rock[0].teleport(landing);
-            });
+            this.timeline.at(launch + 1, () -> rock[0].teleport(landing));
             this.timeline.during(launch + 1, launch + 1 + fallTicks, step -> {
                 Location at = from.clone().add(path.clone().multiply((double) step / fallTicks));
                 this.context.particle(Particle.FLAME, at, decoy ? 2 : 4, 0.12, 0.01);
