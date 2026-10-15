@@ -38,6 +38,10 @@ Stopping the server and a hard kill mid-show need a server restart, so they are 
 with `node stopcheck.js open`, then stopping or killing the server, then restarting it and
 running `node stopcheck.js after`.
 
+For a visual check with a real client, `node watch.js` puts a bot called `Watcher` next to the
+crate for 20 minutes. It logs every change in the number of show entities it receives, so it
+should stay at 0 while someone else opens the crate.
+
 ## Known results
 
 - `reload` fails. Paper rebuilds its command state before disabling plugins, so the `give`
