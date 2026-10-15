@@ -16,7 +16,8 @@ plugin's debug log.
 4. `npm run setup` (again after every `prepare-server`, which resets the crate files and so
    unlinks the blocks). A bot places and links the test crate block. For visual
    checks, `node setup.js showcase 3` places the `showcase` crate (eight rewards across all five
-   rarities, bound to `orbit`) three blocks to the right.
+   rarities, bound to `orbit`) three blocks to the right, and `node setup.js csgo_compare 6` places
+   `csgo_compare` (the same rewards with ExcellentCrates' own CSGO animation) for comparison.
 5. `npm test` runs every scenario except `reload`. Run single scenarios with
    `node tests.js quit death`.
 

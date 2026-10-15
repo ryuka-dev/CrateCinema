@@ -13,8 +13,12 @@ const h = require('./harness');
   await h.cmd('gamemode survival Bot1');
   const crateId = process.argv[2] || h.CRATE_ID;
   const dx = Number(process.argv[3] || 0);
-  const p = bot.entity.position.floored();
-  const chest = p.offset(dx, 0, 3);
+  const origin = bot.entity.position.floored();
+  const p = origin.offset(dx, 0, 0);
+  const chest = p.offset(0, 0, 3);
+  // Stand in front of the new crate so it is within reach.
+  await h.cmd(`tp Bot1 ${p.x + 0.5} ${p.y} ${p.z + 0.5} 0 0`);
+  await h.sleep(800);
   console.log(await h.cmd(`setblock ${chest.x} ${chest.y} ${chest.z} minecraft:air`));
   console.log(await h.cmd('clear Bot1'));
   console.log(await h.cmd('give Bot1 minecraft:chest 1'));

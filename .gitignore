@@ -8,3 +8,4 @@ out/
 node_modules/
 it/crate.json
 it/showcase.json
+it/csgo_compare.json
