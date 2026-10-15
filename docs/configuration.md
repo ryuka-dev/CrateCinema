@@ -109,14 +109,14 @@ limits:
 
 ```yaml
 bedrock:
-  mode: crate-plugin
+  mode: simple
 ```
 
 Bedrock clients (through Geyser) cannot show the item and block displays the shows are made of.
 With Floodgate installed, Bedrock players get:
 
-- `crate-plugin`: the normal ExcellentCrates opening, as if the crate were not bound;
-- `simple`: the text-only `simple` show.
+- `simple`: the text-only `simple` show (default);
+- `crate-plugin`: the normal ExcellentCrates opening, as if the crate were not bound.
 
 Without Floodgate this setting has no effect.
 

@@ -35,9 +35,9 @@ limits:
 bedrock:
   # What Bedrock players get (detected through Floodgate; ignored without it). Their clients
   # cannot show the item and block displays the shows are made of.
-  #   crate-plugin - the normal ExcellentCrates opening, as if the crate were not bound.
   #   simple       - a text-only show.
-  mode: crate-plugin
+  #   crate-plugin - the normal ExcellentCrates opening, as if the crate were not bound.
+  mode: simple
 
 messages:
   # Sent when a player tries to open a crate while still watching a show. '&' colour codes are supported.
