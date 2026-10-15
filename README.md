@@ -7,7 +7,7 @@ Keys, reward pools and the crate editor stay with ExcellentCrates; this plugin o
 
 ## Requirements
 
-- Paper or Spigot 1.21.9 or newer
+- Paper 1.21.9 or newer (ExcellentCrates is dropping Spigot support)
 - Java 25 (required by ExcellentCrates 7.x)
 - ExcellentCrates 7.1.0 or newer, with nightcore
 
