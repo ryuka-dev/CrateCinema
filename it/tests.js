@@ -1,9 +1,9 @@
-// Stage 1 integration tests. Usage: node tests.js [testName ...]  (no args = all except "reload")
+// Integration tests. Usage: node tests.js [testName ...]  (no args = all except bukkitReload)
 const fs = require('fs');
 const path = require('path');
 const h = require('./harness');
 
-const crate = JSON.parse(fs.readFileSync(__dirname + '/crate.json', 'utf8'));
+const crate = JSON.parse(fs.readFileSync(h.positionFile('crate'), 'utf8'));
 const crateVec = new h.Vec3(crate.x, crate.y, crate.z);
 const crateCenter = crateVec.offset(0.5, 0.5, 0.5);
 const SHOW_MS = 3600; // TestShow: 72 ticks
@@ -45,7 +45,7 @@ const ended = (log, name, reason) => new RegExp(`Ended show 'cinema_test' for [0
 // Bukkit /reload is unsupported (see README); not in the default run.
 const MANUAL = ['bukkitReload'];
 
-const PLUGIN_DIR = path.join(__dirname, '..', 'run', 'plugins', 'CrateCinema');
+const PLUGIN_DIR = path.join(h.RUN_DIR, 'plugins', 'CrateCinema');
 
 /**
  * Runs body with edited CrateCinema config files, then restores them and reloads.
@@ -231,7 +231,7 @@ const tests = {
 
   // The orbit show on the showcase crate (node setup.js showcase 3). Skipped if that crate is not set up.
   async orbit() {
-    const file = __dirname + '/showcase.json';
+    const file = h.positionFile('showcase');
     if (!fs.existsSync(file)) { console.log('skipped: run "node setup.js showcase 3" first'); return; }
     const showcase = JSON.parse(fs.readFileSync(file, 'utf8'));
     const block = new h.Vec3(showcase.x, showcase.y, showcase.z);
@@ -267,7 +267,7 @@ const tests = {
   // Every show through /cratecinema preview at the lowest and highest tier: it must finish, leave
   // nothing behind and log no errors. Uses the showcase crate block as the target.
   async previews() {
-    const file = __dirname + '/showcase.json';
+    const file = h.positionFile('showcase');
     if (!fs.existsSync(file)) { console.log('skipped: run "node setup.js showcase 3" first'); return; }
     const showcase = JSON.parse(fs.readFileSync(file, 'utf8'));
     const center = new h.Vec3(showcase.x + 0.5, showcase.y + 0.5, showcase.z + 0.5);
@@ -336,7 +336,7 @@ const tests = {
   },
 
   async timeout() {
-    const file = __dirname + '/showcase.json';
+    const file = h.positionFile('showcase');
     if (!fs.existsSync(file)) { console.log('skipped: run "node setup.js showcase 3" first'); return; }
     const showcase = JSON.parse(fs.readFileSync(file, 'utf8'));
     const block = new h.Vec3(showcase.x, showcase.y, showcase.z);

@@ -21,6 +21,14 @@ plugin's debug log.
 5. `npm test` runs every scenario except `bukkitReload`. Run single scenarios with
    `node tests.js quit death`.
 
+### Other Minecraft versions
+
+`it/check-version.sh <server version> <bot version>` runs everything against another Minecraft
+version, in its own `run-<version>/` directory. The bots support `1.21.9`, `1.21.10`, `1.21.11` and
+`26.1` (which also speaks 26.1.2's protocol). Newer servers need a real client: joining through
+ViaBackwards does not work, because it mistranslates the bots' movement packets and the server kicks
+them.
+
 ## Scenarios
 
 | Name | What it checks |

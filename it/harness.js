@@ -5,8 +5,10 @@ const { Rcon } = require('rcon-client');
 const { Vec3 } = require('vec3');
 
 const path = require('path');
-const LOG = path.join(__dirname, '..', 'run', 'logs', 'latest.log');
-const VERSION = '1.21.9';
+// CC_RUN: the server's run directory (default run); CC_MC: the bot's Minecraft version (default 1.21.9).
+const RUN_DIR = path.join(__dirname, '..', process.env.CC_RUN || 'run');
+const LOG = path.join(RUN_DIR, 'logs', 'latest.log');
+const VERSION = process.env.CC_MC || '1.21.9';
 const CRATE_ID = 'cinema_test_crate';
 const KEY_ID = 'cinema_key';
 const REWARD_ITEMS = ['diamond', 'emerald', 'gold_ingot'];
@@ -65,6 +67,9 @@ async function waitFor(pred, timeoutMs, stepMs = 100) {
   return await pred();
 }
 
+/** Where a placed crate's position is stored; positions belong to one world, so they live in its run directory. */
+function positionFile(name) { return path.join(RUN_DIR, `cc-${name}.json`); }
+
 const results = [];
 function check(name, ok, detail = '') {
   results.push({ name, ok });
@@ -79,5 +84,5 @@ function summary() {
 module.exports = {
   sleep, rconConnect, cmd, rconClose, logMark, logSince, spawnBot, quitBot,
   count, rewards, keys, displaysNear, waitFor, check, summary, Vec3,
-  CRATE_ID, KEY_ID, REWARD_ITEMS, KEY_ITEM,
+  CRATE_ID, KEY_ID, REWARD_ITEMS, KEY_ITEM, RUN_DIR, positionFile,
 };

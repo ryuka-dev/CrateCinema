@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const run = path.join(__dirname, '..', 'run');
+const run = path.join(__dirname, '..', process.env.CC_RUN || 'run');
 const fixtures = path.join(__dirname, 'fixtures');
 
 function copyTree(from, to) {

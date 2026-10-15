@@ -1,5 +1,5 @@
 // One-time world setup: place a chest and assign it to a crate.
-// Usage: node setup.js [crateId] [offsetX]. Writes crate.json (test crate) or <crateId>.json.
+// Usage: node setup.js [crateId] [offsetX]. Stores the position in the run directory (see positionFile).
 const fs = require('fs');
 const h = require('./harness');
 
@@ -22,12 +22,13 @@ const h = require('./harness');
   console.log(await h.cmd(`setblock ${chest.x} ${chest.y} ${chest.z} minecraft:air`));
   console.log(await h.cmd('clear Bot1'));
   console.log(await h.cmd('give Bot1 minecraft:chest 1'));
-  await h.sleep(800);
+  await h.waitFor(() => bot.inventory.items().some(i => i.name === 'chest'), 10000);
   const chestItem = bot.inventory.items().find(i => i.name === 'chest');
   await bot.equip(chestItem, 'hand');
   await h.sleep(300);
   bot.chat(`/crate assign ${crateId}`);
   await h.sleep(1500);
+  await h.waitFor(() => bot.inventory.items().some(i => i.name === 'chest'), 10000);
   const held = bot.inventory.items().find(i => i.name === 'chest');
   await bot.equip(held, 'hand');
   const below = bot.blockAt(chest.offset(0, -1, 0));
@@ -36,8 +37,8 @@ const h = require('./harness');
   await h.sleep(1000);
   console.log('placed:', bot.blockAt(chest).name);
   console.log('chat:', bot.chatLog.slice(-5));
-  const out = crateId === h.CRATE_ID ? 'crate.json' : `${crateId}.json`;
-  fs.writeFileSync(`${__dirname}/${out}`, JSON.stringify({ x: chest.x, y: chest.y, z: chest.z, stand: { x: p.x, y: p.y, z: p.z } }));
+  const out = h.positionFile(crateId === h.CRATE_ID ? 'crate' : crateId);
+  fs.writeFileSync(out, JSON.stringify({ x: chest.x, y: chest.y, z: chest.z, stand: { x: p.x, y: p.y, z: p.z } }));
   console.log('crate at', chest, 'bot at', p);
   await h.quitBot(bot);
   await h.rconClose();

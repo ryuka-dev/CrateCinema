@@ -44,8 +44,15 @@ tasks.processResources {
     }
 }
 
+// -PtestMc=<version> runs the test server on another Minecraft version, in its own run-<version>
+// directory: a world upgraded to a newer version cannot be opened by an older one.
+val testMc = providers.gradleProperty("testMc").orNull
+
 tasks.runServer {
-    minecraftVersion("1.21.9")
+    minecraftVersion(testMc ?: "1.21.9")
+    if (testMc != null) {
+        runDirectory.set(layout.projectDirectory.dir("run-$testMc"))
+    }
     downloadPlugins {
         modrinth("nightcore", nightcoreVersion)
         modrinth("excellentcrates", excellentCratesVersion)

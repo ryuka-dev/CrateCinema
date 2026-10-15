@@ -1,6 +1,6 @@
 // Stands next to the crate for a while and logs every change in the show entities it receives.
 const fs = require('fs'); const h = require('./harness');
-const c = JSON.parse(fs.readFileSync(__dirname + '/crate.json'));
+const c = JSON.parse(fs.readFileSync(h.positionFile('crate')));
 const center = new h.Vec3(c.x + 0.5, c.y + 0.5, c.z + 0.5);
 (async () => {
   await h.rconConnect();

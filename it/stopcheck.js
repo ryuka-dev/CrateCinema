@@ -1,6 +1,6 @@
 // mode=open: open a crate and stop/crash is driven externally. mode=after: rejoin and report.
 const fs = require('fs'); const h = require('./harness');
-const c = JSON.parse(fs.readFileSync(__dirname + '/crate.json'));
+const c = JSON.parse(fs.readFileSync(h.positionFile('crate')));
 const v = new h.Vec3(c.x, c.y, c.z);
 (async () => {
   await h.rconConnect();
