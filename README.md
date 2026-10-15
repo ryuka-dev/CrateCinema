@@ -1,9 +1,22 @@
 # CrateCinema
 
-In-world opening animations for [ExcellentCrates](https://modrinth.com/plugin/excellentcrates).
+Cinematic, in-world opening shows for [ExcellentCrates](https://modrinth.com/plugin/excellentcrates).
 Keys, reward pools and the crate editor stay with ExcellentCrates; this plugin only adds the show.
 
-> Status: early development, not released yet.
+## Features
+
+- **Four shows**: `orbit` (a ring of rewards that spins and narrows down to the winner), `starfall`
+  (a meteor strikes the crate), `cards` (shuffled cards, one flips over) and `rift` (a portal tear
+  swallows the pool and pushes the reward out). There is also a text-only `simple` show.
+- **Rarity tiers**: rarer rewards build up longer, glow in their rarity colour and end bigger.
+- **Private by default**: only the player opening the crate sees their show, so a crowd can open
+  the same crate at once. Showing it to nearby players is one setting.
+- **Batch openings stay short**: one show for the best reward, then the whole batch at a glance.
+- **Safe**: ExcellentCrates grants every reward. If a player quits, teleports away or the server
+  stops mid-show, the reward is granted at once. Nothing is left in the world after a crash.
+- **Bedrock aware**: with Floodgate, Bedrock players get a text-only show they can actually see.
+- **Configurable**: one file per show, `/cratecinema reload`, and `/cratecinema preview` to try
+  any show at any tier.
 
 ## Requirements
 
