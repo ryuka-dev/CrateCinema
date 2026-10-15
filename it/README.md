@@ -18,7 +18,7 @@ plugin's debug log.
    checks, `node setup.js showcase 3` places the `showcase` crate (eight rewards across all five
    rarities, bound to `orbit`) three blocks to the right, and `node setup.js csgo_compare 6` places
    `csgo_compare` (the same rewards with ExcellentCrates' own CSGO animation) for comparison.
-5. `npm test` runs every scenario except `reload`. Run single scenarios with
+5. `npm test` runs every scenario except `bukkitReload`. Run single scenarios with
    `node tests.js quit death`.
 
 ## Scenarios
@@ -36,7 +36,14 @@ plugin's debug log.
 | ecreload | `/ecrates reload` mid-show does not break the show or the hook |
 | batch | A 3× opening plays 3 rounds in one session and grants all rewards at the end |
 | batchInterrupt | Interrupting a batch grants all of its rewards |
-| reload | Bukkit `/reload` mid-show (not in the default run; see below) |
+| orbit | On the showcase crate: the ring spawns, the crate hologram is hidden from the viewer and comes back afterwards, and the reward arrives at the end |
+| previews | Every show at tiers 0 and 3 through `/cratecinema preview`: each finishes, logs no errors and leaves no display entities on the server |
+| configReload | Rebinding a crate takes effect after `/cratecinema reload` without a restart; an invalid value is reported |
+| limits | With `max-concurrent-shows: 1`, a second opening gets the normal ExcellentCrates opening |
+| timeout | A show that would run past `max-show-seconds` is ended by the limit and still grants |
+| audience | With `audience: nearby`, a player next to the crate sees someone else's show |
+| particles | With `particle-density: 0`, the viewer receives no show particles |
+| bukkitReload | Bukkit `/reload` mid-show (not in the default run; see below) |
 
 Stopping the server and a hard kill mid-show need a server restart, so they are run by hand
 with `node stopcheck.js open`, then stopping or killing the server, then restarting it and
@@ -48,7 +55,7 @@ should stay at 0 while someone else opens the crate.
 
 ## Known results
 
-- `reload` fails. Paper rebuilds its command state before disabling plugins, so the `give`
+- `bukkitReload` fails. Paper rebuilds its command state before disabling plugins, so the `give`
   command that ExcellentCrates dispatches for the reward does nothing. On top of that, nightcore
   and ExcellentCrates fail to re-enable. Bukkit `/reload` is unsupported; a full restart is
   required.
