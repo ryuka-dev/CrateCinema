@@ -58,7 +58,3 @@ rewards:
   required_rewards: 1
 selective_rewards:
   enabled: false
-blocks:
-  positions:
-    minecraft:overworld:
-    - 8.0,-60.0,-2.0,0.0,0.0

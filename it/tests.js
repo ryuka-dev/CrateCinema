@@ -25,6 +25,12 @@ async function open(b) {
   await b.activateBlock(b.blockAt(crateVec));
 }
 
+const SHOWCASE_ITEMS = ['dragon_egg', 'netherite_ingot', 'diamond', 'emerald', 'gold_ingot', 'iron_ingot', 'golden_apple', 'bread'];
+/** Showcase rewards in the inventory. */
+function count(b) {
+  return SHOWCASE_ITEMS.reduce((sum, name) => sum + h.count(b, name), 0);
+}
+
 async function openBatchOfThree(b) {
   await open(b);
   await h.waitFor(() => !!b.currentWindow, 3000);
@@ -171,7 +177,7 @@ const tests = {
     const b = await bot('Bot1'); await prep('Bot1', 3);
     const mark = h.logMark();
     await openBatchOfThree(b);
-    h.check('batch: one session with 3 rounds', await h.waitFor(() => h.logSince(mark).includes('for Bot1 (3 round(s))'), 3000));
+    h.check('batch: one session with 3 rounds', await h.waitFor(() => h.logSince(mark).includes('for Bot1 (3 reward(s))'), 3000));
     h.check('batch: 3 keys taken up front', await h.waitFor(() => h.keys(b) === 0, 2000), `keys=${h.keys(b)}`);
     await h.sleep(5000);
     h.check('batch: no reward mid-batch (granted together at the end)', h.rewards(b) === 0, `rewards=${h.rewards(b)}`);
@@ -183,11 +189,46 @@ const tests = {
     const b = await bot('Bot1'); await prep('Bot1', 3);
     const mark = h.logMark();
     await openBatchOfThree(b);
-    await h.waitFor(() => h.logSince(mark).includes('for Bot1 (3 round(s))'), 3000);
+    await h.waitFor(() => h.logSince(mark).includes('for Bot1 (3 reward(s))'), 3000);
     await h.sleep(4500); // inside round 2
     await h.cmd('execute as Bot1 at Bot1 run tp @s ~60 ~ ~');
     h.check('batchInterrupt: ended as TELEPORT', await h.waitFor(() => ended(h.logSince(mark), 'Bot1', 'TELEPORT'), 1500));
     h.check('batchInterrupt: all 3 rewards granted at once', await h.waitFor(() => h.rewards(b) === 3, 2000), `rewards=${h.rewards(b)}`);
+  },
+
+  // The orbit show on the showcase crate (node setup.js showcase 3). Skipped if that crate is not set up.
+  async orbit() {
+    const file = __dirname + '/showcase.json';
+    if (!fs.existsSync(file)) { console.log('skipped: run "node setup.js showcase 3" first'); return; }
+    const showcase = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const block = new h.Vec3(showcase.x, showcase.y, showcase.z);
+    const center = block.offset(0.5, 0.5, 0.5);
+    const b = await bot('Bot1');
+    await h.cmd(`clear Bot1`);
+    await h.cmd(`tp Bot1 ${showcase.stand.x + 0.5} ${showcase.stand.y} ${showcase.stand.z + 0.5} 0 0`);
+    await h.cmd(`cratekey give Bot1 ${h.KEY_ID} 1`);
+    await h.sleep(1500);
+    // ExcellentCrates' hologram: text displays straight above this crate (needs packetevents).
+    const hologramIds = () => Object.values(b.entities)
+      .filter(e => e.name === 'text_display' && Math.abs(e.position.x - center.x) < 0.6 && Math.abs(e.position.z - center.z) < 0.6)
+      .map(e => e.id);
+    const hologram = hologramIds();
+    const hologramShown = () => hologram.some(id => b.entities[id]);
+    const mark = h.logMark();
+    await b.lookAt(center, true);
+    await b.activateBlock(b.blockAt(block));
+    h.check('orbit: show starts', await h.waitFor(() => h.logSince(mark).includes("Started show 'orbit' for Bot1"), 2000));
+    await h.sleep(1500);
+    const ring = h.displaysNear(b, center, 4);
+    h.check('orbit: ring of 6-8 rewards', ring >= 6 && ring <= 8, `item_display=${ring}`);
+    h.check('orbit: crate hologram hidden from the viewer', hologram.length > 0 && !hologramShown(),
+      `hologram entities=${hologram.length}, still shown=${hologramShown()}`);
+    h.check('orbit: no reward during the show', h.rewards(b) === 0 && count(b) === 0);
+    h.check('orbit: reward granted when it ends', await h.waitFor(() => count(b) === 1, 20000), `items=${count(b)}`);
+    h.check('orbit: ended as FINISHED', /Ended show 'orbit' for [0-9a-f-]+: FINISHED/.test(h.logSince(mark)));
+    h.check('orbit: everything removed', await h.waitFor(() => h.displaysNear(b, center, 4) === 0, 1500));
+    h.check('orbit: hologram back afterwards', await h.waitFor(() => hologramIds().length === hologram.length, 3000),
+      `hologram entities=${hologramIds().length}`);
   },
 
   // Bukkit /reload: disables and re-enables every plugin. Not in the default run.

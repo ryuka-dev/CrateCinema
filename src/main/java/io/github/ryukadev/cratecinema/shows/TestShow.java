@@ -38,13 +38,11 @@ public final class TestShow implements Show {
     @Override
     public ShowInstance create(ShowContext context, ShowRound round) {
         Location anchor = context.anchor();
-        ItemDisplay display = anchor.getWorld().spawn(anchor, ItemDisplay.class, entity -> {
-            context.prepare(entity);
+        ItemDisplay display = context.spawn(anchor, ItemDisplay.class, entity -> {
             entity.setItemStack(round.target().icon());
             entity.setBillboard(Display.Billboard.FIXED);
             entity.setTransformation(transformation(0.0F, 0.0F));
         });
-        context.reveal(display);
         return new Instance(display);
     }
 

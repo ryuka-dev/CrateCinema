@@ -13,7 +13,10 @@ plugin's debug log.
    and the binding. It also enables debug logging and turns off ExcellentCrates' interaction
    cooldown.
 3. `./gradlew runServer` again and wait for `Done`.
-4. `npm run setup` (first time only). A bot places and links the crate block.
+4. `npm run setup` (again after every `prepare-server`, which resets the crate files and so
+   unlinks the blocks). A bot places and links the test crate block. For visual
+   checks, `node setup.js showcase 3` places the `showcase` crate (eight rewards across all five
+   rarities, bound to `orbit`) three blocks to the right.
 5. `npm test` runs every scenario except `reload`. Run single scenarios with
    `node tests.js quit death`.
 

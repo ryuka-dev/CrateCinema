@@ -30,6 +30,7 @@ public final class SessionManager {
     private final Plugin plugin;
     private final Logger logger;
     private final Diagnostics diagnostics;
+    private final Tiers tiers;
 
     private final Map<UUID, Session> sessions = new HashMap<>();
     /** Completions held back because the viewer died; released once they are alive again. */
@@ -37,10 +38,11 @@ public final class SessionManager {
 
     private @Nullable BukkitTask task;
 
-    public SessionManager(Plugin plugin, Diagnostics diagnostics) {
+    public SessionManager(Plugin plugin, Diagnostics diagnostics, Tiers tiers) {
         this.plugin = plugin;
         this.logger = plugin.getLogger();
         this.diagnostics = diagnostics;
+        this.tiers = tiers;
     }
 
     /** Whether the player is watching a show or still has a reward waiting from one. */
@@ -53,6 +55,11 @@ public final class SessionManager {
      * {@code onComplete} even if the show cannot start; in that case it runs immediately.
      */
     public void play(Show show, ShowRequest request, Runnable onComplete) {
+        this.play(show, request, onComplete, this.tiers);
+    }
+
+    /** As {@link #play(Show, ShowRequest, Runnable)}, with a tier mapping other than the configured one. */
+    public void play(Show show, ShowRequest request, Runnable onComplete, Tiers tiers) {
         Player viewer = request.viewer();
         UUID viewerId = viewer.getUniqueId();
         Completion completion = new Completion(onComplete, this.logger);
@@ -63,7 +70,7 @@ public final class SessionManager {
             return;
         }
 
-        ShowContext context = new ShowContext(this.plugin, viewer, request.anchor());
+        ShowContext context = new ShowContext(this.plugin, viewer, request.anchor(), tiers);
         Session session = new Session(show, context, request.rounds(), completion, this.logger);
         this.sessions.put(viewerId, session);
         try {
@@ -75,7 +82,7 @@ public final class SessionManager {
         }
 
         this.diagnostics.debug(() -> "Started show '" + show.id() + "' for " + viewer.getName()
-            + " (" + request.rounds().size() + " round(s))");
+            + " (" + request.rounds().size() + " reward(s))");
         this.ensureTicking();
     }
 

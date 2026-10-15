@@ -1,6 +1,8 @@
 package io.github.ryukadev.cratecinema.engine;
 
+import java.util.Comparator;
 import java.util.List;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -8,32 +10,53 @@ import org.bukkit.Location;
 import org.jspecify.annotations.Nullable;
 
 /**
- * One viewer's show: plays the rounds in order. Driven by {@link SessionManager}.
+ * One viewer's show, driven by {@link SessionManager}.
+ *
+ * <p>A single reward plays the show once. A batch plays the show once for its best reward
+ * (highest tier, then lowest chance), followed by a short summary of every reward in the batch,
+ * so a large batch does not turn into minutes of repeated shows.
  */
 final class Session {
 
     private final Show show;
     private final ShowContext context;
-    private final List<ShowRound> rounds;
+    private final List<Supplier<ShowInstance>> steps;
     private final Completion completion;
     private final Logger logger;
 
-    private int roundIndex;
+    private int stepIndex;
     private @Nullable ShowInstance current;
 
     Session(Show show, ShowContext context, List<ShowRound> rounds, Completion completion, Logger logger) {
         this.show = show;
         this.context = context;
-        this.rounds = rounds;
+        this.steps = plan(show, context, rounds);
         this.completion = completion;
         this.logger = logger;
     }
 
-    void start() {
-        this.current = this.show.create(this.context, this.rounds.get(0));
+    private static List<Supplier<ShowInstance>> plan(Show show, ShowContext context, List<ShowRound> rounds) {
+        if (rounds.size() == 1) {
+            ShowRound only = rounds.get(0);
+            return List.of(() -> show.create(context, only));
+        }
+        ShowRound best = rounds.stream()
+            .max(Comparator.comparingInt((ShowRound round) -> context.tierOf(round.target()))
+                .thenComparing(round -> -knownChance(round.target())))
+            .orElseThrow();
+        List<RewardView> all = rounds.stream().map(ShowRound::target).toList();
+        return List.of(() -> show.create(context, best), () -> new SummaryShow(context, all));
     }
 
-    /** @return {@code false} once every round has finished */
+    private static double knownChance(RewardView reward) {
+        return Double.isNaN(reward.chance()) ? 1.0 : reward.chance();
+    }
+
+    void start() {
+        this.current = this.steps.get(0).get();
+    }
+
+    /** @return {@code false} once every step has finished */
     boolean tick() {
         ShowInstance instance = this.current;
         if (instance == null) {
@@ -44,26 +67,26 @@ final class Session {
         }
 
         this.closeCurrent();
-        this.roundIndex++;
-        if (this.roundIndex >= this.rounds.size()) {
+        this.stepIndex++;
+        if (this.stepIndex >= this.steps.size()) {
             return false;
         }
-        this.current = this.show.create(this.context, this.rounds.get(this.roundIndex));
+        this.current = this.steps.get(this.stepIndex).get();
         return true;
     }
 
-    /** Removes whatever the current round spawned. Safe to call more than once. */
+    /** Removes whatever the current step spawned. Safe to call more than once. */
     void closeCurrent() {
         ShowInstance instance = this.current;
         this.current = null;
-        if (instance == null) {
-            return;
+        if (instance != null) {
+            try {
+                instance.cleanup();
+            } catch (RuntimeException exception) {
+                this.logger.log(Level.WARNING, "Show '" + this.show.id() + "' failed to clean up", exception);
+            }
         }
-        try {
-            instance.cleanup();
-        } catch (RuntimeException exception) {
-            this.logger.log(Level.WARNING, "Show '" + this.show.id() + "' failed to clean up", exception);
-        }
+        this.context.removeAll();
     }
 
     Location anchor() {

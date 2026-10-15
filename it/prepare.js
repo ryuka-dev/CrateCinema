@@ -33,7 +33,8 @@ copyTree(path.join(fixtures, 'ExcellentCrates'), path.join(run, 'plugins', 'Exce
 fs.mkdirSync(path.join(run, 'plugins', 'CrateCinema'), { recursive: true });
 copyTree(path.join(fixtures, 'CrateCinema'), path.join(run, 'plugins', 'CrateCinema'));
 
-// Debug logging: the tests read our debug lines.
+// Our default config, with debug logging on: the tests read our debug lines.
+fs.copyFileSync(path.join(__dirname, '..', 'src', 'main', 'resources', 'config.yml'), path.join(run, 'plugins', 'CrateCinema', 'config.yml'));
 edit(path.join(run, 'plugins', 'CrateCinema', 'config.yml'), /^debug: (true|false)/m, 'debug: true');
 // ExcellentCrates' 3-second interaction cooldown would race the "second opening" test.
 edit(path.join(run, 'plugins', 'ExcellentCrates', 'config', 'crates.interaction.yml'),

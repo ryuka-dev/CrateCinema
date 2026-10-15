@@ -46,5 +46,7 @@ tasks.runServer {
     downloadPlugins {
         modrinth("nightcore", nightcoreVersion)
         modrinth("excellentcrates", excellentCratesVersion)
+        // ExcellentCrates draws crate holograms through packetevents.
+        modrinth("packetevents", "2.14.0+spigot")
     }
 }

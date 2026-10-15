@@ -6,7 +6,9 @@ import java.util.List;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Player;
+import org.jspecify.annotations.Nullable;
 
+import io.github.ryukadev.cratecinema.engine.RarityView;
 import io.github.ryukadev.cratecinema.engine.RewardView;
 import io.github.ryukadev.cratecinema.engine.ShowRequest;
 import io.github.ryukadev.cratecinema.engine.ShowRound;
@@ -15,8 +17,13 @@ import su.nightexpress.excellentcrates.api.crate.pipeline.component.CrateSourceP
 import su.nightexpress.excellentcrates.api.crate.pipeline.component.PipelineComponentKeys;
 import su.nightexpress.excellentcrates.api.crate.pipeline.context.PipelineContext;
 import su.nightexpress.excellentcrates.api.crate.pipeline.reward.PipelineReward;
+import su.nightexpress.excellentcrates.api.rarity.Rarity;
+import su.nightexpress.excellentcrates.api.rarity.registry.RarityResolver;
+import su.nightexpress.excellentcrates.api.rarity.reward.RarityComponent;
 import su.nightexpress.excellentcrates.api.reward.Reward;
+import su.nightexpress.excellentcrates.api.reward.component.RewardComponentKeys;
 import su.nightexpress.excellentcrates.api.reward.preview.RewardPreviewAPI;
+import su.nightexpress.nightcore.util.text.night.NightMessage;
 
 /**
  * Translates an ExcellentCrates pipeline into the engine's show request.
@@ -24,9 +31,11 @@ import su.nightexpress.excellentcrates.api.reward.preview.RewardPreviewAPI;
 final class ShowRequests {
 
     private final RewardPreviewAPI preview;
+    private final @Nullable RarityResolver rarities;
 
-    ShowRequests(RewardPreviewAPI preview) {
+    ShowRequests(RewardPreviewAPI preview, @Nullable RarityResolver rarities) {
         this.preview = preview;
+        this.rarities = rarities;
     }
 
     ShowRequest create(Player player, PipelineContext context, CrateRewardsPipelineComponent rewards) {
@@ -35,19 +44,34 @@ final class ShowRequests {
 
         List<ShowRound> rounds = new ArrayList<>(targets.size());
         for (int index = 0; index < targets.size(); index++) {
+            // Each target was rolled from the pool recorded as its fillers; selectable-reward
+            // crates record none.
+            List<Reward> pool = index < fillers.size() ? fillers.get(index) : List.of();
+            double totalWeight = pool.stream().mapToDouble(Reward::getWeight).sum();
             // Shows display what will actually be granted, which reward limits may have changed.
-            RewardView target = this.view(targets.get(index).getGranted());
-            // Selectable-reward crates have no fillers.
-            List<RewardView> roundFillers = index < fillers.size()
-                ? fillers.get(index).stream().map(this::view).toList()
-                : List.of();
+            RewardView target = this.view(targets.get(index).getGranted(), totalWeight);
+            List<RewardView> roundFillers = pool.stream().map(reward -> this.view(reward, totalWeight)).toList();
             rounds.add(new ShowRound(target, roundFillers));
         }
         return new ShowRequest(player, anchor(player, context), rounds);
     }
 
-    private RewardView view(Reward reward) {
-        return new RewardView(this.preview.createPreviewItem(reward));
+    private RewardView view(Reward reward, double poolWeight) {
+        String name = NightMessage.asLegacy(this.preview.getDisplayInfo(reward).name());
+        double chance = poolWeight > 0 && reward.getWeight() > 0 ? reward.getWeight() / poolWeight : Double.NaN;
+        return new RewardView(this.preview.createPreviewItem(reward), name, this.rarity(reward), chance);
+    }
+
+    private @Nullable RarityView rarity(Reward reward) {
+        RarityComponent component = reward.getComponentOrNull(RewardComponentKeys.RARITY);
+        if (this.rarities == null || component == null || !component.isEnabled()) {
+            return null;
+        }
+        Rarity rarity = this.rarities.resolveRarity(component.getRarityId());
+        if (rarity == null) {
+            return null;
+        }
+        return new RarityView(rarity.idString(), NightMessage.asLegacy(rarity.getName()), rarity.getColor());
     }
 
     /**

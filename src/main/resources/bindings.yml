@@ -4,7 +4,7 @@
 # Value: the show id.
 #
 # Crates that are not listed here keep their normal ExcellentCrates opening.
-# Available shows: cinema_test
+# Available shows: orbit, cinema_test (a minimal show for testing)
 #
 # Example:
 # bindings:

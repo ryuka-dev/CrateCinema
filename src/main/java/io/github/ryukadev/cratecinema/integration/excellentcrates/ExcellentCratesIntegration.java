@@ -17,8 +17,12 @@ import io.github.ryukadev.cratecinema.engine.SessionManager;
 import su.nightexpress.excellentcrates.api.ExcellentCratesAPI;
 import su.nightexpress.excellentcrates.api.crate.pipeline.PipelineAPI;
 import su.nightexpress.excellentcrates.api.crate.pipeline.PipelinePhase;
+import su.nightexpress.excellentcrates.api.rarity.RarityAPI;
+import su.nightexpress.excellentcrates.api.rarity.registry.RarityResolver;
 import su.nightexpress.excellentcrates.api.reward.RewardsAPI;
 import su.nightexpress.excellentcrates.api.reward.preview.RewardPreviewAPI;
+import su.nightexpress.nightcore.bridge.key.AdaptedKey;
+import su.nightexpress.nightcore.bridge.key.KeyDomain;
 
 /**
  * The only place that talks to ExcellentCrates.
@@ -99,13 +103,16 @@ public final class ExcellentCratesIntegration implements Listener {
             return;
         }
 
+        RarityResolver rarities = api.getRarityAPI().map(RarityAPI::getResolver).orElse(null);
+        AdaptedKey markerKey = KeyDomain.of("cratecinema").makeSafe("show").orElseThrow();
+
         Registration newRegistration = new Registration();
         try {
             PipelineAPI pipeline = api.getCratesAPI().pipeline();
             pipeline.registerStage(PipelinePhase.PRE_ROLL, SessionGuardStage.ORDER,
-                new SessionGuardStage(newRegistration, this.sessions, this.busyMessage));
+                new SessionGuardStage(newRegistration, this.sessions, this.bindings, markerKey, this.busyMessage));
             pipeline.registerProcessor(new CinemaPipelineProcessor(newRegistration, this.bindings, this.sessions,
-                new ShowRequests(preview.get()), this.logger));
+                new ShowRequests(preview.get(), rarities), this.logger));
         } catch (IllegalStateException exception) {
             newRegistration.deactivate();
             this.logger.severe("ExcellentCrates refused the registration (" + exception.getMessage()

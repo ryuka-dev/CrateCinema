@@ -1,6 +1,17 @@
 # Writes show start/end and interruptions to the console. Logging only; it does not change how shows behave.
 debug: false
 
+# Show tier for each ExcellentCrates rarity id, from 0 (plainest) to 3 (grandest).
+# Higher tiers build up longer and end with bigger effects.
+tiers:
+  common: 0
+  uncommon: 0
+  rare: 1
+  epic: 2
+  legendary: 3
+# Tier for rewards without a rarity, or with a rarity not listed above.
+default-tier: 0
+
 messages:
   # Sent when a player tries to open a crate while still watching a show. '&' colour codes are supported.
   already-watching: "&cYou are still watching a crate opening."
