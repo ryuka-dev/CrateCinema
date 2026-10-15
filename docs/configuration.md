@@ -120,6 +120,10 @@ With Floodgate installed, Bedrock players get:
 
 Without Floodgate this setting has no effect.
 
+Geyser connects to the server as the newest Java version. If the server runs an older version,
+Bedrock players need ViaVersion installed to join at all; this is a Geyser requirement, not
+specific to this plugin.
+
 ### Messages and debugging
 
 ```yaml

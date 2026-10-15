@@ -53,6 +53,16 @@ For a visual check with a real client, `node watch.js` puts a bot called `Watche
 crate for 20 minutes. It logs every change in the number of show entities it receives, so it
 should stay at 0 while someone else opens the crate.
 
+## Bedrock check (manual)
+
+Needs a Bedrock client. Put Geyser-Spigot and Floodgate (from download.geysermc.org) and
+ViaVersion into `run/plugins/`, set `auth-type: floodgate` in `plugins/Geyser-Spigot/config.yml`,
+and restart. ViaVersion is needed because Geyser connects as the newest Java version. Join on
+`127.0.0.1:19132` and open a bound crate:
+
+- `bedrock.mode: crate-plugin`: no show starts; ExcellentCrates grants the reward directly.
+- `bedrock.mode: simple`: the text-only show plays, and the reward arrives when it ends.
+
 ## Known results
 
 - `bukkitReload` fails. Paper rebuilds its command state before disabling plugins, so the `give`
