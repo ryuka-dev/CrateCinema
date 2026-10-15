@@ -5,3 +5,5 @@ out/
 .idea/
 *.iml
 .kotlin/
+node_modules/
+it/crate.json

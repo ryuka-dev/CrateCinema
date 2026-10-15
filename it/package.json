@@ -1,0 +1,15 @@
+{
+  "name": "cratecinema-it",
+  "private": true,
+  "description": "Integration tests against the local test server (see README.md).",
+  "scripts": {
+    "prepare-server": "node prepare.js",
+    "setup": "node setup.js",
+    "test": "node tests.js"
+  },
+  "dependencies": {
+    "mineflayer": "4.39.0",
+    "rcon-client": "4.2.5",
+    "vec3": "0.1.10"
+  }
+}

@@ -1,0 +1,14 @@
+base:
+  virtual: false
+display:
+  name: A key
+  lore:
+  - A key to open a crate.
+item:
+  item:
+    Data:
+      Value: '{count:1,id:"minecraft:tripwire_hook"}'
+      DataVersion: 4554
+    Provider: vanilla
+  stackable: false
+  inherit_display_settings: true

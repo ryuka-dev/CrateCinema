@@ -1,0 +1,64 @@
+base:
+  permission_required: false
+display:
+  name: Crate
+  lore: []
+item:
+  item:
+    Data:
+      Value: '{count:1,id:"minecraft:chest"}'
+      DataVersion: 4554
+    Provider: vanilla
+  item_stackable: true
+  use_display: true
+opening:
+  enabled: true
+  opening_commands: []
+hologram:
+  enabled: true
+  text:
+  - '%crate_name%'
+  - ''
+  - '%crate_description%'
+  - ''
+  - <white>Left-Click</white><gray> to preview the crate</gray>
+  - <white>Right-Click</white><gray> to open the crate</gray>
+  offset:
+    x: 0.0
+    y: 0.7
+    z: 0.0
+cooldowns:
+  global:
+    enabled: false
+    mode: DAILY
+    value: 0
+  individual:
+    enabled: false
+    mode: DAILY
+    value: 0
+animation:
+  enabled: false
+  profile: none:null
+effect:
+  enabled: true
+  profile: helix:default
+key_requirements:
+  enabled: true
+  keys:
+    cinema_key:
+      amount: 1
+rewards:
+  reward_list:
+    diamond:
+      reward_id: diamond
+    emerald:
+      reward_id: emerald
+    gold:
+      reward_id: gold
+  required_rewards: 1
+selective_rewards:
+  enabled: false
+blocks:
+  positions:
+    minecraft:overworld:
+    - 8.0,-60.0,-2.0,0.0,0.0

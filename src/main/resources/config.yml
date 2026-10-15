@@ -1,0 +1,6 @@
+# Writes show start/end and interruptions to the console. Logging only; it does not change how shows behave.
+debug: false
+
+messages:
+  # Sent when a player tries to open a crate while still watching a show. '&' colour codes are supported.
+  already-watching: "&cYou are still watching a crate opening."

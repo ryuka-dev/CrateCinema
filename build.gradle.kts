@@ -16,6 +16,7 @@ repositories {
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:$paperApiVersion")
+    compileOnly("org.jspecify:jspecify:1.0.0")
     compileOnly("su.nightexpress.excellentcrates:crates-api:$excellentCratesVersion")
     compileOnly("su.nightexpress.nightcore:main:$nightcoreVersion")
 }
@@ -29,6 +30,7 @@ java {
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
     options.release.set(25)
+    options.compilerArgs.add("-Xlint:all")
 }
 
 tasks.processResources {
@@ -40,7 +42,7 @@ tasks.processResources {
 }
 
 tasks.runServer {
-    minecraftVersion("1.21.8")
+    minecraftVersion("1.21.9")
     downloadPlugins {
         modrinth("nightcore", nightcoreVersion)
         modrinth("excellentcrates", excellentCratesVersion)

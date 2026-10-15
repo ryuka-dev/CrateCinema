@@ -1,0 +1,46 @@
+# Integration tests
+
+Bots (mineflayer) and RCON drive real crate openings on the local test server and check the
+outcome: keys taken, rewards granted, which display entities each player receives, and the
+plugin's debug log.
+
+## Running
+
+1. `./gradlew runServer` once, accept the Minecraft EULA in `run/eula.txt` yourself, let the
+   server finish starting, then `stop` it.
+2. `cd it && npm install && npm run prepare-server`. This writes `run/server.properties` (offline
+   mode, port 25590, RCON on 25591, bound to 127.0.0.1), the test crate, its rewards and key,
+   and the binding. It also enables debug logging and turns off ExcellentCrates' interaction
+   cooldown.
+3. `./gradlew runServer` again and wait for `Done`.
+4. `npm run setup` (first time only). A bot places and links the crate block.
+5. `npm test` runs every scenario except `reload`. Run single scenarios with
+   `node tests.js quit death`.
+
+## Scenarios
+
+| Name | What it checks |
+|---|---|
+| normal | The key is taken at the start, the opener sees the display, the reward arrives when the show ends, and the entity is removed |
+| quit | Quitting mid-show ends it; the reward is there after rejoining |
+| death | Dying mid-show ends it; the reward is held until respawn, then granted |
+| teleport | A short teleport is ignored; a long one ends the show and grants at once |
+| world | Changing world ends the show and grants |
+| concurrent | Two players open the same crate; each receives only their own display entity |
+| double | A second opening while watching is refused before any key is taken |
+| fastopen | A sneak (fast) opening is left to ExcellentCrates |
+| ecreload | `/ecrates reload` mid-show does not break the show or the hook |
+| batch | A 3× opening plays 3 rounds in one session and grants all rewards at the end |
+| batchInterrupt | Interrupting a batch grants all of its rewards |
+| reload | Bukkit `/reload` mid-show (not in the default run; see below) |
+
+Stopping the server and a hard kill mid-show need a server restart, so they are run by hand
+with `node stopcheck.js open`, then stopping or killing the server, then restarting it and
+running `node stopcheck.js after`.
+
+## Known results
+
+- `reload` fails. Paper rebuilds its command state before disabling plugins, so the `give`
+  command that ExcellentCrates dispatches for the reward does nothing. On top of that, nightcore
+  and ExcellentCrates fail to re-enable. Bukkit `/reload` is unsupported; a full restart is
+  required.

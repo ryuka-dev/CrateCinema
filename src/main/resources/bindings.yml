@@ -1,0 +1,13 @@
+# Which crates play which show.
+#
+# Key:   the ExcellentCrates crate id (the crate's file name without .yml).
+# Value: the show id.
+#
+# Crates that are not listed here keep their normal ExcellentCrates opening.
+# Available shows: cinema_test
+#
+# Example:
+# bindings:
+#   my_crate: cinema_test
+
+bindings: {}
