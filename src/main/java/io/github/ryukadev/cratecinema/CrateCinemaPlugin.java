@@ -18,7 +18,10 @@ import io.github.ryukadev.cratecinema.engine.SessionManager;
 import io.github.ryukadev.cratecinema.engine.ShowCatalog;
 import io.github.ryukadev.cratecinema.engine.Tiers;
 import io.github.ryukadev.cratecinema.integration.excellentcrates.ExcellentCratesIntegration;
+import io.github.ryukadev.cratecinema.shows.CardsShow;
 import io.github.ryukadev.cratecinema.shows.OrbitShow;
+import io.github.ryukadev.cratecinema.shows.RiftShow;
+import io.github.ryukadev.cratecinema.shows.StarfallShow;
 import io.github.ryukadev.cratecinema.shows.TestShow;
 
 public final class CrateCinemaPlugin extends JavaPlugin {
@@ -38,6 +41,9 @@ public final class CrateCinemaPlugin extends JavaPlugin {
         ShowCatalog catalog = new ShowCatalog();
         catalog.register(new TestShow());
         catalog.register(new OrbitShow());
+        catalog.register(new StarfallShow());
+        catalog.register(new CardsShow());
+        catalog.register(new RiftShow());
         Bindings bindings = Bindings.load(new File(this.getDataFolder(), BINDINGS_FILE), catalog, this.getLogger());
 
         Diagnostics diagnostics = new Diagnostics(this.getLogger(), this.getConfig().getBoolean("debug"));

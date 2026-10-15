@@ -231,6 +231,45 @@ const tests = {
       `hologram entities=${hologramIds().length}`);
   },
 
+  // Every show through /cratecinema preview at the lowest and highest tier: it must finish, leave
+  // nothing behind and log no errors. Uses the showcase crate block as the target.
+  async previews() {
+    const file = __dirname + '/showcase.json';
+    if (!fs.existsSync(file)) { console.log('skipped: run "node setup.js showcase 3" first'); return; }
+    const showcase = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const center = new h.Vec3(showcase.x + 0.5, showcase.y + 0.5, showcase.z + 0.5);
+    const b = await bot('Bot1');
+    await h.cmd('op Bot1');
+    await h.cmd('clear Bot1');
+    await h.cmd(`tp Bot1 ${showcase.stand.x + 0.5} ${showcase.stand.y} ${showcase.stand.z + 0.5} 0 0`);
+    await h.sleep(1500);
+    await b.lookAt(center, true);
+    const shown = () => Object.values(b.entities)
+      .filter(e => ['item_display', 'block_display', 'text_display'].includes(e.name) && e.position.distanceTo(center) <= 12).length;
+    const baseline = shown(); // crate holograms seen so far; they are packet-only, so the server never counts them
+    const serverClean = async () => {
+      for (const type of ['item_display', 'block_display', 'text_display']) {
+        if (!(await h.cmd(`execute if entity @e[type=minecraft:${type}]`)).includes('failed')) return false;
+      }
+      return true;
+    };
+    for (const show of ['orbit', 'starfall', 'cards', 'rift']) {
+      for (const tier of [0, 3]) {
+        const mark = h.logMark();
+        b.chat(`/cratecinema preview ${show} ${tier}`);
+        const started = await h.waitFor(() => h.logSince(mark).includes(`Started show '${show}' for Bot1`), 2000);
+        await h.sleep(1500);
+        const during = shown();
+        const finished = await h.waitFor(() => new RegExp(`Ended show '${show}' for [0-9a-f-]+: FINISHED`).test(h.logSince(mark)), 25000);
+        await h.sleep(500);
+        const clean = await serverClean();
+        const errors = /ERROR|Exception/.test(h.logSince(mark));
+        h.check(`previews: ${show} tier ${tier}`, started && during > baseline && finished && clean && !errors && h.rewards(b) === 0,
+          `started=${started} entities=${during - baseline} finished=${finished} clean=${clean} errors=${errors}`);
+      }
+    }
+  },
+
   // Bukkit /reload: disables and re-enables every plugin. Not in the default run.
   async reload() {
     const b = await bot('Bot1'); await prep('Bot1');
