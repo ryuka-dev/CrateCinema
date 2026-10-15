@@ -1,3 +1,5 @@
+<img src="docs/media/banner.png" width="100%" alt="CrateCinema: cinematic opening shows for ExcellentCrates">
+
 # CrateCinema
 
 Cinematic, in-world opening shows for [ExcellentCrates](https://modrinth.com/plugin/excellentcrates).
@@ -57,3 +59,12 @@ Integration tests drive real openings with bots; see [it/README.md](it/README.md
 ## License
 
 GPL-3.0. See [LICENSE](LICENSE).
+
+## Help
+
+Questions and ideas are welcome on Discord. Bugs are tracked in GitHub issues.
+
+<p>
+  <a href="https://discord.gg/53SRDaZwVN"><img src="docs/media/support-discord.png" width="49%" alt="Questions or ideas? Join the Discord"></a>
+  <a href="https://github.com/ryuka-dev/CrateCinema/issues"><img src="docs/media/support-github.png" width="49%" alt="Found a bug? Open an issue on GitHub"></a>
+</p>
