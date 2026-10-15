@@ -6,10 +6,13 @@ import java.util.logging.Logger;
 
 import org.bukkit.entity.Player;
 
-import io.github.ryukadev.cratecinema.binding.Bindings;
+import io.github.ryukadev.cratecinema.config.LiveConfig;
+import io.github.ryukadev.cratecinema.config.PluginSettings;
 import io.github.ryukadev.cratecinema.engine.SessionManager;
 import io.github.ryukadev.cratecinema.engine.Show;
 import io.github.ryukadev.cratecinema.engine.ShowRequest;
+import io.github.ryukadev.cratecinema.platform.BedrockPlayers;
+import io.github.ryukadev.cratecinema.shows.SimpleShow;
 import su.nightexpress.excellentcrates.api.crate.Crate;
 import su.nightexpress.excellentcrates.api.crate.pipeline.PipelineProcessor;
 import su.nightexpress.excellentcrates.api.crate.pipeline.component.CrateRewardsPipelineComponent;
@@ -21,7 +24,9 @@ import su.nightexpress.excellentcrates.api.crate.pipeline.context.PipelineContex
  * animation, our show plays, and ExcellentCrates' completion callback (which grants the
  * rewards) runs when it ends.
  *
- * <p>Rewards are rolled and the cost is taken by ExcellentCrates before this runs.
+ * <p>Rewards are rolled and the cost is taken by ExcellentCrates before this runs. Openings it
+ * declines (fast openings, bypassed ones, or when the concurrent show limit is reached) go to
+ * ExcellentCrates' own processors.
  */
 final class CinemaPipelineProcessor implements PipelineProcessor {
 
@@ -29,16 +34,18 @@ final class CinemaPipelineProcessor implements PipelineProcessor {
     static final int PRIORITY = 10;
 
     private final Registration registration;
-    private final Bindings bindings;
+    private final LiveConfig config;
     private final SessionManager sessions;
+    private final BedrockPlayers bedrock;
     private final ShowRequests requests;
     private final Logger logger;
 
-    CinemaPipelineProcessor(Registration registration, Bindings bindings, SessionManager sessions,
-                            ShowRequests requests, Logger logger) {
+    CinemaPipelineProcessor(Registration registration, LiveConfig config, SessionManager sessions,
+                            BedrockPlayers bedrock, ShowRequests requests, Logger logger) {
         this.registration = registration;
-        this.bindings = bindings;
+        this.config = config;
         this.sessions = sessions;
+        this.bedrock = bedrock;
         this.requests = requests;
         this.logger = logger;
     }
@@ -50,10 +57,12 @@ final class CinemaPipelineProcessor implements PipelineProcessor {
 
     @Override
     public boolean shouldHandle(Crate crate, PipelineContext context) {
-        if (!this.registration.isActive() || context.hasComponent(PipelineComponentKeys.FAST_OPEN)) {
+        if (!this.registration.isActive()
+            || context.hasComponent(PipelineComponentKeys.FAST_OPEN)
+            || context.hasComponent(BypassMarker.KEY)) {
             return false;
         }
-        if (this.bindings.showFor(crate.idString()).isEmpty()) {
+        if (this.config.bindings().showFor(crate.idString()).isEmpty() || !this.sessions.hasCapacity()) {
             return false;
         }
         CrateRewardsPipelineComponent rewards = context.getComponentOrNull(PipelineComponentKeys.REWARDS);
@@ -65,7 +74,7 @@ final class CinemaPipelineProcessor implements PipelineProcessor {
         ShowRequest request;
         Optional<Show> show;
         try {
-            show = this.bindings.showFor(context.getCrate().idString());
+            show = this.showFor(player, context);
             CrateRewardsPipelineComponent rewards = context.getComponentStrict(PipelineComponentKeys.REWARDS);
             request = this.requests.create(player, context, rewards);
         } catch (RuntimeException exception) {
@@ -78,5 +87,13 @@ final class CinemaPipelineProcessor implements PipelineProcessor {
             return;
         }
         this.sessions.play(show.get(), request, onComplete);
+    }
+
+    /** The bound show, or the text-only one for Bedrock players when configured so. */
+    private Optional<Show> showFor(Player player, PipelineContext context) {
+        if (this.config.settings().bedrockMode() == PluginSettings.BedrockMode.SIMPLE && this.bedrock.isBedrock(player)) {
+            return this.config.catalog().get(SimpleShow.ID);
+        }
+        return this.config.bindings().showFor(context.getCrate().idString());
     }
 }

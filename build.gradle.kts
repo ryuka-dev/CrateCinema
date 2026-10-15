@@ -12,6 +12,8 @@ repositories {
     maven("https://repo.papermc.io/repository/maven-public/")
     // ExcellentCrates and nightcore are published here.
     maven("https://repo.nightexpressdev.com/releases")
+    // Floodgate API, for telling Bedrock players apart.
+    maven("https://repo.opencollab.dev/main/")
 }
 
 dependencies {
@@ -19,6 +21,7 @@ dependencies {
     compileOnly("org.jspecify:jspecify:1.0.0")
     compileOnly("su.nightexpress.excellentcrates:crates-api:$excellentCratesVersion")
     compileOnly("su.nightexpress.nightcore:main:$nightcoreVersion")
+    compileOnly("org.geysermc.floodgate:api:2.2.4-SNAPSHOT")
 }
 
 // ExcellentCrates 7.x is compiled for Java 25 (class file version 69), so servers running it

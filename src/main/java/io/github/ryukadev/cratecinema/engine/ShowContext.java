@@ -14,8 +14,9 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.util.Vector;
 
 /**
- * What a show may use while it runs. Everything goes to the viewer only: spawned entities are
- * hidden from everyone else, particles and sounds are sent to the viewer alone.
+ * What a show may use while it runs. Everything goes to the show's audience only: spawned
+ * entities are hidden from everyone else, and particles and sounds are sent to the audience alone.
+ * The audience is the viewer, plus, if configured, the players near the crate when the show began.
  *
  * <p>The context remembers every entity it spawned and removes them when the show ends, so a show
  * cannot leave anything behind even if it forgets to clean up.
@@ -24,22 +25,40 @@ public final class ShowContext {
 
     private final Plugin plugin;
     private final Player viewer;
+    private final List<Player> audience;
     private final Location anchor;
     private final Tiers tiers;
+    private final EngineSettings settings;
     private final Vector towardViewer;
     private final Vector right;
     private final List<Entity> spawned = new ArrayList<>();
 
-    ShowContext(Plugin plugin, Player viewer, Location anchor, Tiers tiers) {
+    ShowContext(Plugin plugin, Player viewer, Location anchor, Tiers tiers, EngineSettings settings) {
         this.plugin = plugin;
         this.viewer = viewer;
         this.anchor = anchor.clone();
         this.tiers = tiers;
+        this.settings = settings;
+        this.audience = audienceFor(viewer, anchor, settings);
 
         Vector horizontal = viewer.getEyeLocation().toVector().subtract(anchor.toVector()).setY(0);
         this.towardViewer = horizontal.lengthSquared() < 1.0E-4 ? new Vector(0, 0, 1) : horizontal.normalize();
         // The viewer looks along -towardViewer; their right-hand side is that direction crossed with up.
         this.right = new Vector(this.towardViewer.getZ(), 0, -this.towardViewer.getX());
+    }
+
+    private static List<Player> audienceFor(Player viewer, Location anchor, EngineSettings settings) {
+        List<Player> audience = new ArrayList<>();
+        audience.add(viewer);
+        if (settings.audience() == EngineSettings.Audience.NEARBY) {
+            double radiusSquared = settings.nearbyRadius() * settings.nearbyRadius();
+            for (Player player : anchor.getWorld().getPlayers()) {
+                if (player != viewer && player.getLocation().distanceSquared(anchor) <= radiusSquared) {
+                    audience.add(player);
+                }
+            }
+        }
+        return List.copyOf(audience);
     }
 
     public Player viewer() {
@@ -71,8 +90,8 @@ public final class ShowContext {
     }
 
     /**
-     * Spawns an entity for this show. It is never saved with the chunk, only the viewer can see it,
-     * and it is removed when the show ends. {@code setup} runs before any client receives it.
+     * Spawns an entity for this show. It is never saved with the chunk, only the audience can see
+     * it, and it is removed when the show ends. {@code setup} runs before any client receives it.
      */
     public <T extends Entity> T spawn(Location at, Class<T> type, Consumer<? super T> setup) {
         T entity = at.getWorld().spawn(at, type, created -> {
@@ -81,7 +100,11 @@ public final class ShowContext {
             setup.accept(created);
         });
         this.spawned.add(entity);
-        this.viewer.showEntity(this.plugin, entity);
+        for (Player player : this.audience) {
+            if (player.isOnline()) {
+                player.showEntity(this.plugin, entity);
+            }
+        }
         return entity;
     }
 
@@ -102,14 +125,36 @@ public final class ShowContext {
     }
 
     public void particle(Particle particle, Location at, int count, double spread, double speed) {
-        this.viewer.spawnParticle(particle, at, count, spread, spread, spread, speed);
+        int scaled = this.scaled(count);
+        for (Player player : this.audience) {
+            if (scaled > 0 && player.isOnline()) {
+                player.spawnParticle(particle, at, scaled, spread, spread, spread, speed);
+            }
+        }
     }
 
     public <D> void particle(Particle particle, Location at, int count, double spread, double speed, D data) {
-        this.viewer.spawnParticle(particle, at, count, spread, spread, spread, speed, data);
+        int scaled = this.scaled(count);
+        for (Player player : this.audience) {
+            if (scaled > 0 && player.isOnline()) {
+                player.spawnParticle(particle, at, scaled, spread, spread, spread, speed, data);
+            }
+        }
     }
 
     public void sound(Sound sound, float volume, float pitch) {
-        this.viewer.playSound(this.anchor, sound, SoundCategory.MASTER, volume, pitch);
+        float scaled = (float) (volume * this.settings.soundVolume());
+        if (scaled <= 0) {
+            return;
+        }
+        for (Player player : this.audience) {
+            if (player.isOnline()) {
+                player.playSound(this.anchor, sound, SoundCategory.MASTER, scaled, pitch);
+            }
+        }
+    }
+
+    private int scaled(int count) {
+        return (int) Math.round(count * this.settings.particleDensity());
     }
 }

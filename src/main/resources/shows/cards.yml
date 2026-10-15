@@ -1,0 +1,21 @@
+# Cards: five face-down cards fan out and are shuffled; one steps forward, glows in the reward's
+# rarity colour and flips over to show the reward.
+#
+# Lists have four values, one per tier: [tier 0, tier 1, tier 2, tier 3]. Tiers come from the
+# reward's rarity (see "tiers" in config.yml). A single number applies to every tier.
+# Times are in ticks; 20 ticks = 1 second.
+
+# The item shown as the back of the cards.
+card-item: MAP
+
+# How many times two cards swap places (0 - 12).
+swaps: [3, 4, 5, 6]
+
+# How long the chosen card glows before it flips (0 - 100).
+charge-ticks: [6, 14, 24, 36]
+
+# How long each half of the flip takes (2 - 20).
+flip-ticks: [4, 5, 6, 8]
+
+# How long the revealed reward stays before the show ends (10 - 200).
+hold-ticks: [25, 35, 45, 55]

@@ -4,7 +4,8 @@
 # Value: the show id.
 #
 # Crates that are not listed here keep their normal ExcellentCrates opening.
-# Available shows: orbit, starfall, cards, rift, and cinema_test (a minimal show for testing).
+# Available shows: orbit, starfall, cards, rift, simple (text only), and cinema_test (for testing).
+# Each show has its own settings file in shows/. After editing, run /cratecinema reload.
 # Try them in-game with /cratecinema preview <show> [tier].
 #
 # Example:

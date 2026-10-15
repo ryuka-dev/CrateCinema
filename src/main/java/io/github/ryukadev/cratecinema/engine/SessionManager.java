@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -30,7 +31,7 @@ public final class SessionManager {
     private final Plugin plugin;
     private final Logger logger;
     private final Diagnostics diagnostics;
-    private final Tiers tiers;
+    private final Supplier<EngineSettings> settings;
 
     private final Map<UUID, Session> sessions = new HashMap<>();
     /** Completions held back because the viewer died; released once they are alive again. */
@@ -38,11 +39,16 @@ public final class SessionManager {
 
     private @Nullable BukkitTask task;
 
-    public SessionManager(Plugin plugin, Diagnostics diagnostics, Tiers tiers) {
+    public SessionManager(Plugin plugin, Diagnostics diagnostics, Supplier<EngineSettings> settings) {
         this.plugin = plugin;
         this.logger = plugin.getLogger();
         this.diagnostics = diagnostics;
-        this.tiers = tiers;
+        this.settings = settings;
+    }
+
+    /** Whether another show may start now, under the configured limit on concurrent shows. */
+    public boolean hasCapacity() {
+        return this.sessions.size() < this.settings.get().maxConcurrentShows();
     }
 
     /** Whether the player is watching a show or still has a reward waiting from one. */
@@ -55,7 +61,7 @@ public final class SessionManager {
      * {@code onComplete} even if the show cannot start; in that case it runs immediately.
      */
     public void play(Show show, ShowRequest request, Runnable onComplete) {
-        this.play(show, request, onComplete, this.tiers);
+        this.play(show, request, onComplete, this.settings.get().tiers());
     }
 
     /** As {@link #play(Show, ShowRequest, Runnable)}, with a tier mapping other than the configured one. */
@@ -70,8 +76,9 @@ public final class SessionManager {
             return;
         }
 
-        ShowContext context = new ShowContext(this.plugin, viewer, request.anchor(), tiers);
-        Session session = new Session(show, context, request.rounds(), completion, this.logger);
+        EngineSettings current = this.settings.get();
+        ShowContext context = new ShowContext(this.plugin, viewer, request.anchor(), tiers, current);
+        Session session = new Session(show, context, request.rounds(), completion, this.logger, current.maxShowTicks());
         this.sessions.put(viewerId, session);
         try {
             session.start();
@@ -151,6 +158,11 @@ public final class SessionManager {
         for (UUID playerId : List.copyOf(this.sessions.keySet())) {
             Session session = this.sessions.get(playerId);
             if (session == null) {
+                continue;
+            }
+            if (session.expired()) {
+                this.logger.warning("Show '" + session.showId() + "' ran past the configured time limit; ending it and granting the reward.");
+                this.end(playerId, EndReason.TIMEOUT);
                 continue;
             }
             boolean running;

@@ -5,11 +5,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
+import org.bukkit.Axis;
 import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.Orientable;
 import org.bukkit.entity.BlockDisplay;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.ItemDisplay;
@@ -17,6 +20,7 @@ import org.bukkit.util.Transformation;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import io.github.ryukadev.cratecinema.config.SettingsFile;
 import io.github.ryukadev.cratecinema.engine.Displays;
 import io.github.ryukadev.cratecinema.engine.RewardView;
 import io.github.ryukadev.cratecinema.engine.Show;
@@ -36,6 +40,24 @@ public final class RiftShow implements Show {
 
     public static final String ID = "rift";
 
+    /** Settings from {@code shows/rift.yml}; arrays hold one value per tier. */
+    public record Settings(Material tearBlock, Color tearGlow, int[] chargeTicks, int[] holdTicks) {
+
+        public static Settings read(SettingsFile config) {
+            return new Settings(
+                config.material("tear-block", Material::isBlock, "a block, for example NETHER_PORTAL"),
+                config.color("tear-glow"),
+                config.tierInts("charge-ticks", 0, 100),
+                config.tierInts("hold-ticks", 10, 200));
+        }
+    }
+
+    private final Settings settings;
+
+    public RiftShow(Settings settings) {
+        this.settings = settings;
+    }
+
     @Override
     public String id() {
         return ID;
@@ -43,12 +65,11 @@ public final class RiftShow implements Show {
 
     @Override
     public ShowInstance create(ShowContext context, ShowRound round) {
-        return new Instance(context, round);
+        return new Instance(context, round, this.settings);
     }
 
     private static final class Instance implements ShowInstance {
 
-        private static final Color RIFT_GLOW = Color.fromRGB(170, 60, 255);
         /** The portal block's own model is a thin sheet, so this mostly sets the sheet's thickness. */
         private static final float DEPTH = 0.2F;
         private static final int PUSH_TICKS = 6;
@@ -58,10 +79,9 @@ public final class RiftShow implements Show {
         private static final double PUSH = 0.7;
 
         private static final int[] SUCK_GAP = {4, 4, 3, 3};
-        private static final int[] CHARGE_TICKS = {6, 14, 24, 36};
-        private static final int[] HOLD_TICKS = {25, 35, 45, 55};
 
         private final ShowContext context;
+        private final Settings settings;
         private final RewardView target;
         private final int tier;
         private final float revealScale;
@@ -76,8 +96,9 @@ public final class RiftShow implements Show {
         private final Reveal.Label label;
         private final Timeline timeline = new Timeline();
 
-        Instance(ShowContext context, ShowRound round) {
+        Instance(ShowContext context, ShowRound round, Settings settings) {
             this.context = context;
+            this.settings = settings;
             this.target = round.target();
             this.tier = context.tierOf(this.target);
             this.revealScale = Reveal.itemScale(this.tier);
@@ -87,12 +108,11 @@ public final class RiftShow implements Show {
             this.front = this.center.clone().add(context.towardViewer().multiply(PUSH));
 
             this.rift = context.spawn(this.center, BlockDisplay.class, display -> {
-                // Axis x: the portal sheet lies across the x-y plane, which the billboard turns to face the viewer.
-                display.setBlock(Material.NETHER_PORTAL.createBlockData("[axis=x]"));
+                display.setBlock(tearBlockData(settings.tearBlock()));
                 display.setBillboard(Display.Billboard.VERTICAL);
                 display.setBrightness(new Display.Brightness(15, 15));
                 display.setGlowing(true);
-                display.setGlowColorOverride(RIFT_GLOW);
+                display.setGlowColorOverride(settings.tearGlow());
                 display.setTransformation(slit(0, 0.1F));
             });
 
@@ -129,9 +149,9 @@ public final class RiftShow implements Show {
             int suckStart = openAt + 12;
             int gap = SUCK_GAP[this.tier];
             int chargeStart = suckStart + this.debris.size() * gap + 6;
-            int chargeTicks = CHARGE_TICKS[this.tier];
+            int chargeTicks = this.settings.chargeTicks()[this.tier];
             int revealAt = chargeStart + chargeTicks;
-            int holdEnd = revealAt + 10 + HOLD_TICKS[this.tier];
+            int holdEnd = revealAt + 10 + this.settings.holdTicks()[this.tier];
 
             // Crack: a hairline tear runs top to bottom.
             this.timeline.at(crackAt, () -> {
@@ -222,6 +242,18 @@ public final class RiftShow implements Show {
                 this.label.shrink();
             });
             this.timeline.endAt(holdEnd + 6);
+        }
+
+        /**
+         * The portal sheet lies across the x-y plane when its axis is x, which the billboard turns to
+         * face the viewer. Other blocks are used as they are.
+         */
+        private static BlockData tearBlockData(Material block) {
+            BlockData data = block.createBlockData();
+            if (data instanceof Orientable orientable && orientable.getAxes().contains(Axis.X)) {
+                orientable.setAxis(Axis.X);
+            }
+            return data;
         }
 
         /** The tear as a thin slab of {@code width} by {@code height}, centred on the entity. */

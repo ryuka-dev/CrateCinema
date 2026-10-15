@@ -4,6 +4,7 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.logging.Logger;
 
 import org.bukkit.configuration.ConfigurationSection;
@@ -42,6 +43,10 @@ public final class Bindings {
         }
         logger.info("Loaded " + showsByCrate.size() + " crate binding(s).");
         return new Bindings(showsByCrate);
+    }
+
+    public Set<String> crateIds() {
+        return this.showsByCrate.keySet();
     }
 
     public Optional<Show> showFor(String crateId) {

@@ -16,6 +16,7 @@ import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.jspecify.annotations.Nullable;
 
+import io.github.ryukadev.cratecinema.config.SettingsFile;
 import io.github.ryukadev.cratecinema.engine.Displays;
 import io.github.ryukadev.cratecinema.engine.RewardView;
 import io.github.ryukadev.cratecinema.engine.Show;
@@ -28,11 +29,29 @@ import io.github.ryukadev.cratecinema.engine.Timeline;
  * Starfall: a burning meteor streaks down from behind the crate, glowing in the reward's rarity
  * colour, and strikes it. A shockwave rolls out and the reward rises from the impact.
  *
- * <p>Higher tiers send smaller decoy meteors first, fall slower, and hit harder.
+ * <p>Higher tiers send smaller decoy meteors first (configurable), fall slower, and hit harder.
  */
 public final class StarfallShow implements Show {
 
     public static final String ID = "starfall";
+
+    /** Settings from {@code shows/starfall.yml}; arrays hold one value per tier. */
+    public record Settings(Material meteorBlock, int[] fallTicks, int[] decoys, int[] holdTicks) {
+
+        public static Settings read(SettingsFile config) {
+            return new Settings(
+                config.material("meteor-block", Material::isBlock, "a block, for example MAGMA_BLOCK"),
+                config.tierInts("fall-ticks", 8, 40),
+                config.tierInts("decoys", 0, 5),
+                config.tierInts("hold-ticks", 10, 200));
+        }
+    }
+
+    private final Settings settings;
+
+    public StarfallShow(Settings settings) {
+        this.settings = settings;
+    }
 
     @Override
     public String id() {
@@ -41,7 +60,7 @@ public final class StarfallShow implements Show {
 
     @Override
     public ShowInstance create(ShowContext context, ShowRound round) {
-        return new Instance(context, round);
+        return new Instance(context, round, this.settings);
     }
 
     private static final class Instance implements ShowInstance {
@@ -52,12 +71,11 @@ public final class StarfallShow implements Show {
         private static final double FROM_BEHIND = 2.5;
         private static final float RISE = 0.9F;
 
-        private static final int[] FALL_TICKS = {14, 16, 18, 20};
         private static final int DECOY_FALL_TICKS = 12;
         private static final int DECOY_GAP = 12;
-        private static final int[] HOLD_TICKS = {25, 35, 45, 55};
 
         private final ShowContext context;
+        private final Settings settings;
         private final RewardView target;
         private final int tier;
         private final float revealScale;
@@ -68,8 +86,9 @@ public final class StarfallShow implements Show {
         private final Reveal.Label label;
         private final Timeline timeline = new Timeline();
 
-        Instance(ShowContext context, ShowRound round) {
+        Instance(ShowContext context, ShowRound round, Settings settings) {
             this.context = context;
+            this.settings = settings;
             this.target = round.target();
             this.tier = context.tierOf(this.target);
             this.revealScale = Reveal.itemScale(this.tier);
@@ -92,8 +111,9 @@ public final class StarfallShow implements Show {
             Vector behind = this.context.towardViewer().multiply(-1);
             double groundY = this.impact.getY() - 1.3;
 
-            // Decoys: one per tier, landing on the ground around the crate.
-            for (int decoy = 0; decoy < this.tier; decoy++) {
+            // Decoys land on the ground around the crate before the real one.
+            int decoys = this.settings.decoys()[this.tier];
+            for (int decoy = 0; decoy < decoys; decoy++) {
                 Location landing = this.impact.clone()
                     .add(right.clone().multiply(random.nextDouble(-2.5, 2.5)))
                     .add(behind.clone().multiply(random.nextDouble(-0.5, 1.5)));
@@ -101,12 +121,12 @@ public final class StarfallShow implements Show {
                 this.meteor(4 + decoy * DECOY_GAP, landing, DECOY_FALL_TICKS, 0.35F, null, true);
             }
 
-            int launch = 14 + this.tier * DECOY_GAP;
-            int fallTicks = FALL_TICKS[this.tier];
+            int launch = 14 + decoys * DECOY_GAP;
+            int fallTicks = this.settings.fallTicks()[this.tier];
             int impactAt = launch + 1 + fallTicks;
             int riseTicks = 10;
             int revealAt = impactAt + 4 + riseTicks;
-            int holdEnd = revealAt + 8 + HOLD_TICKS[this.tier];
+            int holdEnd = revealAt + 8 + this.settings.holdTicks()[this.tier];
 
             // A glint and a rumble before the real one.
             this.timeline.at(launch - 6, () -> {
@@ -170,7 +190,7 @@ public final class StarfallShow implements Show {
             BlockDisplay[] rock = new BlockDisplay[1];
 
             this.timeline.at(launch, () -> rock[0] = this.context.spawn(from, BlockDisplay.class, display -> {
-                display.setBlock(Material.MAGMA_BLOCK.createBlockData());
+                display.setBlock(this.settings.meteorBlock().createBlockData());
                 display.setBrightness(new Display.Brightness(15, 15));
                 display.setTransformation(spun(size, 0));
                 // Must reach the client with the spawn: position updates are sent before metadata,

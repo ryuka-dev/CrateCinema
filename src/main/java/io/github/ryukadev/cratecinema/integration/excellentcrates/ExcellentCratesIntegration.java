@@ -12,11 +12,16 @@ import org.bukkit.event.server.ServiceUnregisterEvent;
 import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 
-import io.github.ryukadev.cratecinema.binding.Bindings;
+import io.github.ryukadev.cratecinema.config.LiveConfig;
 import io.github.ryukadev.cratecinema.engine.SessionManager;
+import io.github.ryukadev.cratecinema.platform.BedrockPlayers;
+import su.nightexpress.engine.id.Identifier;
 import su.nightexpress.excellentcrates.api.ExcellentCratesAPI;
+import su.nightexpress.excellentcrates.api.crate.Crate;
+import su.nightexpress.excellentcrates.api.crate.component.CrateComponentKeys;
 import su.nightexpress.excellentcrates.api.crate.pipeline.PipelineAPI;
 import su.nightexpress.excellentcrates.api.crate.pipeline.PipelinePhase;
+import su.nightexpress.excellentcrates.api.effect.crate.EffectComponent;
 import su.nightexpress.excellentcrates.api.rarity.RarityAPI;
 import su.nightexpress.excellentcrates.api.rarity.registry.RarityResolver;
 import su.nightexpress.excellentcrates.api.reward.RewardsAPI;
@@ -39,18 +44,18 @@ public final class ExcellentCratesIntegration implements Listener {
     private final Plugin plugin;
     private final Logger logger;
     private final SessionManager sessions;
-    private final Bindings bindings;
-    private final String busyMessage;
+    private final LiveConfig config;
+    private final BedrockPlayers bedrock;
 
     private @Nullable ExcellentCratesAPI attachedApi;
     private @Nullable Registration registration;
 
-    public ExcellentCratesIntegration(Plugin plugin, SessionManager sessions, Bindings bindings, String busyMessage) {
+    public ExcellentCratesIntegration(Plugin plugin, SessionManager sessions, LiveConfig config, BedrockPlayers bedrock) {
         this.plugin = plugin;
         this.logger = plugin.getLogger();
         this.sessions = sessions;
-        this.bindings = bindings;
-        this.busyMessage = busyMessage;
+        this.config = config;
+        this.bedrock = bedrock;
     }
 
     public void start() {
@@ -110,9 +115,9 @@ public final class ExcellentCratesIntegration implements Listener {
         try {
             PipelineAPI pipeline = api.getCratesAPI().pipeline();
             pipeline.registerStage(PipelinePhase.PRE_ROLL, SessionGuardStage.ORDER,
-                new SessionGuardStage(newRegistration, this.sessions, this.bindings, markerKey, this.busyMessage));
-            pipeline.registerProcessor(new CinemaPipelineProcessor(newRegistration, this.bindings, this.sessions,
-                new ShowRequests(preview.get(), rarities), this.logger));
+                new SessionGuardStage(newRegistration, this.sessions, this.config, this.bedrock, markerKey));
+            pipeline.registerProcessor(new CinemaPipelineProcessor(newRegistration, this.config, this.sessions,
+                this.bedrock, new ShowRequests(preview.get(), rarities), this.logger));
         } catch (IllegalStateException exception) {
             newRegistration.deactivate();
             this.logger.severe("ExcellentCrates refused the registration (" + exception.getMessage()
@@ -123,6 +128,36 @@ public final class ExcellentCratesIntegration implements Listener {
         this.attachedApi = api;
         this.registration = newRegistration;
         this.logger.info("Hooked into the ExcellentCrates opening pipeline.");
+        this.checkBindings();
+    }
+
+    /**
+     * Warns about bindings that will not work as the server owner expects: crates ExcellentCrates
+     * does not know, and bound crates whose particle effect is on. Those effects are shown to every
+     * player around the crate and overlap the show; this plugin cannot hide them per player.
+     */
+    public void checkBindings() {
+        ExcellentCratesAPI api = this.attachedApi;
+        if (api == null) {
+            return;
+        }
+        for (String crateId : this.config.bindings().crateIds()) {
+            Crate crate;
+            try {
+                crate = api.getCratesAPI().registry().resolveCrate(new Identifier(crateId));
+            } catch (IllegalArgumentException invalidId) {
+                crate = null;
+            }
+            if (crate == null) {
+                this.logger.warning("bindings.yml: ExcellentCrates has no crate '" + crateId + "'.");
+                continue;
+            }
+            EffectComponent effect = crate.getComponentOrNull(CrateComponentKeys.EFFECT);
+            if (effect != null && effect.isEnabled()) {
+                this.logger.warning("Crate '" + crateId + "' has the ExcellentCrates particle effect '" + effect.getProfileKey().asString()
+                    + "' on. It is shown to everyone around the crate and overlaps the show; consider turning it off for this crate.");
+            }
+        }
     }
 
     private void detach() {

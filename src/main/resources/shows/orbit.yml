@@ -1,0 +1,22 @@
+# Orbit: rewards from the pool circle above the crate in a ring, spin, and wink out until only the
+# won reward is left; it charges in its rarity colour and bursts.
+#
+# Lists have four values, one per tier: [tier 0, tier 1, tier 2, tier 3]. Tiers come from the
+# reward's rarity (see "tiers" in config.yml). A single number applies to every tier.
+# Times are in ticks; 20 ticks = 1 second.
+
+# Ring radius in blocks (0.6 - 2.0).
+radius: 1.1
+
+# How long the ring spins (20 - 200).
+spin-ticks: [40, 60, 80, 100]
+
+# How many full turns it makes in that time (0.5 - 5). Keep turns at or below spin-ticks / 30, or the
+# motion gets choppy.
+spin-turns: [1.5, 2.0, 2.5, 3.0]
+
+# How long the won reward gathers light before it bursts (0 - 100).
+charge-ticks: [8, 16, 28, 40]
+
+# How long the revealed reward stays before the show ends (10 - 200).
+hold-ticks: [25, 35, 45, 55]

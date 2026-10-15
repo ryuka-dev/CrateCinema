@@ -2,8 +2,10 @@ package io.github.ryukadev.cratecinema.integration.excellentcrates;
 
 import org.bukkit.entity.Player;
 
-import io.github.ryukadev.cratecinema.binding.Bindings;
+import io.github.ryukadev.cratecinema.config.LiveConfig;
+import io.github.ryukadev.cratecinema.config.PluginSettings;
 import io.github.ryukadev.cratecinema.engine.SessionManager;
+import io.github.ryukadev.cratecinema.platform.BedrockPlayers;
 import su.nightexpress.excellentcrates.api.crate.Crate;
 import su.nightexpress.excellentcrates.api.crate.pipeline.PipelineChain;
 import su.nightexpress.excellentcrates.api.crate.pipeline.PipelineStage;
@@ -16,7 +18,8 @@ import su.nightexpress.nightcore.bridge.key.AdaptedKey;
  * <ul>
  * <li>refuses a new opening while the player is still watching one of our shows, so a refused
  * opening costs nothing;</li>
- * <li>marks openings of bound crates as animated, so ExcellentCrates hides the crate's hologram
+ * <li>for bound crates, either hands a Bedrock player's opening back to ExcellentCrates (when
+ * configured so), or marks the opening as animated so ExcellentCrates hides the crate's hologram
  * from the player during the show.</li>
  * </ul>
  */
@@ -27,17 +30,17 @@ final class SessionGuardStage implements PipelineStage {
 
     private final Registration registration;
     private final SessionManager sessions;
-    private final Bindings bindings;
+    private final LiveConfig config;
+    private final BedrockPlayers bedrock;
     private final AdaptedKey markerKey;
-    private final String busyMessage;
 
-    SessionGuardStage(Registration registration, SessionManager sessions, Bindings bindings,
-                      AdaptedKey markerKey, String busyMessage) {
+    SessionGuardStage(Registration registration, SessionManager sessions, LiveConfig config,
+                      BedrockPlayers bedrock, AdaptedKey markerKey) {
         this.registration = registration;
         this.sessions = sessions;
-        this.bindings = bindings;
+        this.config = config;
+        this.bedrock = bedrock;
         this.markerKey = markerKey;
-        this.busyMessage = busyMessage;
     }
 
     @Override
@@ -46,17 +49,21 @@ final class SessionGuardStage implements PipelineStage {
             chain.proceed(player, context);
             return;
         }
+        PluginSettings settings = this.config.settings();
         if (this.sessions.isBusy(player.getUniqueId())) {
-            if (!this.busyMessage.isEmpty()) {
-                player.sendMessage(this.busyMessage);
+            if (!settings.busyMessage().isEmpty()) {
+                player.sendMessage(settings.busyMessage());
             }
             chain.abort();
             return;
         }
-        if (this.bindings.showFor(crate.idString()).isPresent()
-            && !context.hasComponent(PipelineComponentKeys.FAST_OPEN)
-            && !context.hasComponent(PipelineComponentKeys.ANIMATION)) {
-            context.putComponent(PipelineComponentKeys.ANIMATION, new AnimationMarker(this.markerKey));
+        if (this.config.bindings().showFor(crate.idString()).isPresent()
+            && !context.hasComponent(PipelineComponentKeys.FAST_OPEN)) {
+            if (settings.bedrockMode() == PluginSettings.BedrockMode.CRATE_PLUGIN && this.bedrock.isBedrock(player)) {
+                context.putComponent(BypassMarker.KEY, BypassMarker.INSTANCE);
+            } else if (!context.hasComponent(PipelineComponentKeys.ANIMATION)) {
+                context.putComponent(PipelineComponentKeys.ANIMATION, new AnimationMarker(this.markerKey));
+            }
         }
         chain.proceed(player, context);
     }

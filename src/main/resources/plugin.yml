@@ -5,11 +5,12 @@ description: In-world opening animations for ExcellentCrates.
 authors: [Ryuka]
 api-version: '1.21'
 depend: [nightcore, ExcellentCrates]
+softdepend: [floodgate]
 
 commands:
   cratecinema:
-    description: Preview shows.
-    usage: /cratecinema preview <show> [tier]
+    description: Preview shows and reload the configuration.
+    usage: /cratecinema preview <show> [tier] | /cratecinema reload
     permission: cratecinema.admin
 
 permissions:

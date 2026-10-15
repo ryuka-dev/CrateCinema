@@ -12,6 +12,7 @@ import org.bukkit.entity.Display;
 import org.bukkit.entity.ItemDisplay;
 import org.bukkit.util.Transformation;
 
+import io.github.ryukadev.cratecinema.config.SettingsFile;
 import io.github.ryukadev.cratecinema.engine.Displays;
 import io.github.ryukadev.cratecinema.engine.RewardView;
 import io.github.ryukadev.cratecinema.engine.Show;
@@ -31,6 +32,25 @@ public final class OrbitShow implements Show {
 
     public static final String ID = "orbit";
 
+    /** Settings from {@code shows/orbit.yml}; arrays hold one value per tier. */
+    public record Settings(float radius, int[] spinTicks, double[] spinTurns, int[] chargeTicks, int[] holdTicks) {
+
+        public static Settings read(SettingsFile config) {
+            return new Settings(
+                (float) config.decimal("radius", 0.6, 2.0),
+                config.tierInts("spin-ticks", 20, 200),
+                config.tierDoubles("spin-turns", 0.5, 5.0),
+                config.tierInts("charge-ticks", 0, 100),
+                config.tierInts("hold-ticks", 10, 200));
+        }
+    }
+
+    private final Settings settings;
+
+    public OrbitShow(Settings settings) {
+        this.settings = settings;
+    }
+
     @Override
     public String id() {
         return ID;
@@ -38,12 +58,11 @@ public final class OrbitShow implements Show {
 
     @Override
     public ShowInstance create(ShowContext context, ShowRound round) {
-        return new Instance(context, round);
+        return new Instance(context, round, this.settings);
     }
 
     private static final class Instance implements ShowInstance {
 
-        private static final float RADIUS = 1.1F;
         private static final float RING_SCALE = 0.45F;
         private static final float HERO_SCALE = 0.6F;
         private static final float HERO_RISE = 0.25F;
@@ -52,13 +71,11 @@ public final class OrbitShow implements Show {
         /** Ticks between ring keyframes; the client interpolates in between. */
         private static final int KEYFRAME = 2;
 
-        private static final int[] SPIN_TICKS = {40, 60, 80, 100};
-        private static final double[] SPIN_TURNS = {1.5, 2.0, 2.5, 3.0};
         private static final int COLLAPSE_GAP = 3;
-        private static final int[] CHARGE_TICKS = {8, 16, 28, 40};
-        private static final int[] HOLD_TICKS = {25, 35, 45, 55};
 
         private final ShowContext context;
+        private final Settings settings;
+        private final float radius;
         private final RewardView target;
         private final int tier;
         private final float revealScale;
@@ -69,8 +86,10 @@ public final class OrbitShow implements Show {
         private final Reveal.Label label;
         private final Timeline timeline = new Timeline();
 
-        Instance(ShowContext context, ShowRound round) {
+        Instance(ShowContext context, ShowRound round, Settings settings) {
             this.context = context;
+            this.settings = settings;
+            this.radius = settings.radius();
             this.target = round.target();
             this.tier = context.tierOf(this.target);
             this.revealScale = Reveal.itemScale(this.tier);
@@ -118,15 +137,15 @@ public final class OrbitShow implements Show {
 
         private void script() {
             int spinStart = 12;
-            int spinTicks = SPIN_TICKS[this.tier];
-            double spinAngle = Math.PI * 2 * SPIN_TURNS[this.tier];
+            int spinTicks = this.settings.spinTicks()[this.tier];
+            double spinAngle = Math.PI * 2 * this.settings.spinTurns()[this.tier];
             int collapseStart = spinStart + spinTicks + 2;
             int others = this.ring.size() - 1;
             int gatherAt = collapseStart + others * COLLAPSE_GAP + 2;
             int chargeStart = gatherAt + 8;
-            int chargeTicks = CHARGE_TICKS[this.tier];
+            int chargeTicks = this.settings.chargeTicks()[this.tier];
             int revealAt = chargeStart + chargeTicks;
-            int holdEnd = revealAt + 10 + HOLD_TICKS[this.tier];
+            int holdEnd = revealAt + 10 + this.settings.holdTicks()[this.tier];
             Particle.DustOptions dust = Reveal.dust(this.target, this.tier);
 
             // Open: the ring unfolds from the centre.
@@ -155,7 +174,7 @@ public final class OrbitShow implements Show {
                 }
                 if (this.tier >= 1 && step % 3 == 0) {
                     double angle = ThreadLocalRandom.current().nextDouble(Math.PI * 2);
-                    this.context.particle(Particle.END_ROD, this.world(Math.cos(angle) * RADIUS, Math.sin(angle) * RADIUS), 1, 0.0, 0.0);
+                    this.context.particle(Particle.END_ROD, this.world(Math.cos(angle) * this.radius, Math.sin(angle) * this.radius), 1, 0.0, 0.0);
                 }
             });
 
@@ -171,7 +190,7 @@ public final class OrbitShow implements Show {
                 this.timeline.at(collapseStart + popped * COLLAPSE_GAP, () -> {
                     Displays.animate(item, Displays.at(0, 0, 0, 0), 6);
                     this.context.sound(Sound.BLOCK_NOTE_BLOCK_PLING, 0.7F, pitch);
-                    this.context.particle(Particle.END_ROD, this.world(Math.cos(angle) * RADIUS, Math.sin(angle) * RADIUS), 3, 0.05, 0.02);
+                    this.context.particle(Particle.END_ROD, this.world(Math.cos(angle) * this.radius, Math.sin(angle) * this.radius), 3, 0.05, 0.02);
                 });
                 popped++;
             }
@@ -240,7 +259,7 @@ public final class OrbitShow implements Show {
 
         /** Ring position {@code angle} radians round, in the plane facing the viewer. */
         private Transformation onRing(double angle, float scale) {
-            return Displays.at((float) (Math.cos(angle) * RADIUS), (float) (Math.sin(angle) * RADIUS), 0, scale);
+            return Displays.at((float) (Math.cos(angle) * this.radius), (float) (Math.sin(angle) * this.radius), 0, scale);
         }
 
         /** World position of a point in the ring's plane, for particles. */

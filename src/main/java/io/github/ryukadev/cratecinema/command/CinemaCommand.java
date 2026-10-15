@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BooleanSupplier;
 
 import org.bukkit.Color;
 import org.bukkit.Location;
@@ -16,21 +17,25 @@ import org.bukkit.command.TabExecutor;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import io.github.ryukadev.cratecinema.config.LiveConfig;
 import io.github.ryukadev.cratecinema.engine.RarityView;
 import io.github.ryukadev.cratecinema.engine.RewardView;
 import io.github.ryukadev.cratecinema.engine.SessionManager;
 import io.github.ryukadev.cratecinema.engine.Show;
-import io.github.ryukadev.cratecinema.engine.ShowCatalog;
 import io.github.ryukadev.cratecinema.engine.ShowRequest;
 import io.github.ryukadev.cratecinema.engine.ShowRound;
 import io.github.ryukadev.cratecinema.engine.Tiers;
 
 /**
- * {@code /cratecinema preview <show> [tier]}: plays a show for the sender on the block they are
- * looking at, with the held item as the reward. Nothing is rolled, taken or granted; it never
- * touches the crate plugin.
+ * {@code /cratecinema}:
+ * <ul>
+ * <li>{@code preview <show> [tier]} plays a show for the sender on the block they are looking at,
+ * with the held item as the reward. Nothing is rolled, taken or granted; it never touches the
+ * crate plugin.</li>
+ * <li>{@code reload} reads the configuration files again. Running shows are not affected.</li>
+ * </ul>
  */
-public final class PreviewCommand implements TabExecutor {
+public final class CinemaCommand implements TabExecutor {
 
     private static final String[] TIER_NAMES = {"§fCommon", "§9Rare", "§dEpic", "§6Legendary"};
     private static final Color[] TIER_COLORS = {Color.WHITE, Color.fromRGB(85, 85, 255), Color.fromRGB(170, 0, 170), Color.fromRGB(255, 170, 0)};
@@ -43,28 +48,44 @@ public final class PreviewCommand implements TabExecutor {
     private static final Tiers PREVIEW_TIERS = new Tiers(
         Map.of("preview_0", 0, "preview_1", 1, "preview_2", 2, "preview_3", 3), 0);
 
-    private final ShowCatalog catalog;
+    private final LiveConfig config;
     private final SessionManager sessions;
+    private final BooleanSupplier reload;
 
-    public PreviewCommand(ShowCatalog catalog, SessionManager sessions) {
-        this.catalog = catalog;
+    /** @param reload reloads the plugin's configuration and reports whether it succeeded */
+    public CinemaCommand(LiveConfig config, SessionManager sessions, BooleanSupplier reload) {
+        this.config = config;
         this.sessions = sessions;
+        this.reload = reload;
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (args.length >= 1 && args[0].equalsIgnoreCase("reload")) {
+            boolean applied = this.reload.getAsBoolean();
+            sender.sendMessage(applied
+                ? "§aCrateCinema configuration reloaded. Shows already running are not affected."
+                : "§cCould not reload; the previous configuration is still in use. See the console.");
+            return true;
+        }
+        if (args.length >= 2 && args[0].equalsIgnoreCase("preview")) {
+            this.preview(sender, args);
+            return true;
+        }
+        sender.sendMessage("§eUsage: /" + label + " preview <show> [tier 0-" + Tiers.MAX + "] | /" + label + " reload");
+        sender.sendMessage("§eShows: " + this.config.showIds());
+        return true;
+    }
+
+    private void preview(CommandSender sender, String[] args) {
         if (!(sender instanceof Player player)) {
             sender.sendMessage("Only players can preview shows.");
-            return true;
+            return;
         }
-        if (args.length < 2 || !args[0].equalsIgnoreCase("preview")) {
-            sender.sendMessage("§eUsage: /" + label + " preview <show> [tier 0-" + Tiers.MAX + "]. Shows: " + this.catalog.ids());
-            return true;
-        }
-        Optional<Show> show = this.catalog.get(args[1].toLowerCase(Locale.ROOT));
+        Optional<Show> show = this.config.catalog().get(args[1].toLowerCase(Locale.ROOT));
         if (show.isEmpty()) {
-            sender.sendMessage("§cUnknown show '" + args[1] + "'. Shows: " + this.catalog.ids());
-            return true;
+            sender.sendMessage("§cUnknown show '" + args[1] + "'. Shows: " + this.config.showIds());
+            return;
         }
         int tier = Tiers.MAX;
         if (args.length >= 3) {
@@ -72,12 +93,12 @@ public final class PreviewCommand implements TabExecutor {
                 tier = Tiers.clamp(Integer.parseInt(args[2]));
             } catch (NumberFormatException exception) {
                 sender.sendMessage("§cTier must be a number from 0 to " + Tiers.MAX + ".");
-                return true;
+                return;
             }
         }
         if (this.sessions.isBusy(player.getUniqueId())) {
             sender.sendMessage("§cYou are still watching a show.");
-            return true;
+            return;
         }
 
         ItemStack held = player.getInventory().getItemInMainHand();
@@ -90,7 +111,6 @@ public final class PreviewCommand implements TabExecutor {
         }
         ShowRequest request = new ShowRequest(player, anchor(player), List.of(new ShowRound(target, fillers)));
         this.sessions.play(show.get(), request, () -> { }, PREVIEW_TIERS);
-        return true;
     }
 
     /** Above the block the player looks at, or in front of them. */
@@ -105,12 +125,12 @@ public final class PreviewCommand implements TabExecutor {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            return List.of("preview");
+            return List.of("preview", "reload").stream().filter(sub -> sub.startsWith(args[0].toLowerCase(Locale.ROOT))).toList();
         }
-        if (args.length == 2) {
-            return this.catalog.ids().stream().filter(id -> id.startsWith(args[1].toLowerCase(Locale.ROOT))).sorted().toList();
+        if (args.length == 2 && args[0].equalsIgnoreCase("preview")) {
+            return this.config.showIds().stream().filter(id -> id.startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
         }
-        if (args.length == 3) {
+        if (args.length == 3 && args[0].equalsIgnoreCase("preview")) {
             return List.of("0", "1", "2", "3");
         }
         return List.of();

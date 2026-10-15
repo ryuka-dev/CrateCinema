@@ -23,16 +23,19 @@ final class Session {
     private final List<Supplier<ShowInstance>> steps;
     private final Completion completion;
     private final Logger logger;
+    private final int maxTicks;
 
     private int stepIndex;
+    private int age;
     private @Nullable ShowInstance current;
 
-    Session(Show show, ShowContext context, List<ShowRound> rounds, Completion completion, Logger logger) {
+    Session(Show show, ShowContext context, List<ShowRound> rounds, Completion completion, Logger logger, int maxTicks) {
         this.show = show;
         this.context = context;
         this.steps = plan(show, context, rounds);
         this.completion = completion;
         this.logger = logger;
+        this.maxTicks = maxTicks;
     }
 
     private static List<Supplier<ShowInstance>> plan(Show show, ShowContext context, List<ShowRound> rounds) {
@@ -56,8 +59,14 @@ final class Session {
         this.current = this.steps.get(0).get();
     }
 
+    /** Whether the show has run longer than it may. */
+    boolean expired() {
+        return this.age >= this.maxTicks;
+    }
+
     /** @return {@code false} once every step has finished */
     boolean tick() {
+        this.age++;
         ShowInstance instance = this.current;
         if (instance == null) {
             return false;

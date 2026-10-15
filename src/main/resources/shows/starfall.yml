@@ -1,0 +1,18 @@
+# Starfall: a burning meteor streaks down from behind the crate and strikes it; the reward rises
+# from the impact. Smaller decoy meteors can land first.
+#
+# Lists have four values, one per tier: [tier 0, tier 1, tier 2, tier 3]. Tiers come from the
+# reward's rarity (see "tiers" in config.yml). A single number applies to every tier.
+# Times are in ticks; 20 ticks = 1 second.
+
+# The block the meteors are made of.
+meteor-block: MAGMA_BLOCK
+
+# How long the real meteor takes to fall (8 - 40).
+fall-ticks: [14, 16, 18, 20]
+
+# How many decoy meteors land before it (0 - 5).
+decoys: [0, 1, 2, 3]
+
+# How long the revealed reward stays before the show ends (10 - 200).
+hold-ticks: [25, 35, 45, 55]

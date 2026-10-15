@@ -1,5 +1,6 @@
 package io.github.ryukadev.cratecinema.engine;
 
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 
@@ -9,15 +10,15 @@ import java.util.logging.Logger;
 public final class Diagnostics {
 
     private final Logger logger;
-    private final boolean enabled;
+    private final BooleanSupplier enabled;
 
-    public Diagnostics(Logger logger, boolean enabled) {
+    public Diagnostics(Logger logger, BooleanSupplier enabled) {
         this.logger = logger;
         this.enabled = enabled;
     }
 
     public void debug(Supplier<String> message) {
-        if (this.enabled) {
+        if (this.enabled.getAsBoolean()) {
             this.logger.info("[debug] " + message.get());
         }
     }

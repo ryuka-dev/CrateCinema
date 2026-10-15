@@ -15,6 +15,7 @@ import org.bukkit.util.Transformation;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
+import io.github.ryukadev.cratecinema.config.SettingsFile;
 import io.github.ryukadev.cratecinema.engine.Displays;
 import io.github.ryukadev.cratecinema.engine.RewardView;
 import io.github.ryukadev.cratecinema.engine.Show;
@@ -34,6 +35,25 @@ public final class CardsShow implements Show {
 
     public static final String ID = "cards";
 
+    /** Settings from {@code shows/cards.yml}; arrays hold one value per tier. */
+    public record Settings(Material cardItem, int[] swaps, int[] chargeTicks, int[] flipTicks, int[] holdTicks) {
+
+        public static Settings read(SettingsFile config) {
+            return new Settings(
+                config.material("card-item", Material::isItem, "an item, for example MAP"),
+                config.tierInts("swaps", 0, 12),
+                config.tierInts("charge-ticks", 0, 100),
+                config.tierInts("flip-ticks", 2, 20),
+                config.tierInts("hold-ticks", 10, 200));
+        }
+    }
+
+    private final Settings settings;
+
+    public CardsShow(Settings settings) {
+        this.settings = settings;
+    }
+
     @Override
     public String id() {
         return ID;
@@ -41,7 +61,7 @@ public final class CardsShow implements Show {
 
     @Override
     public ShowInstance create(ShowContext context, ShowRound round) {
-        return new Instance(context, round);
+        return new Instance(context, round, this.settings);
     }
 
     private static final class Instance implements ShowInstance {
@@ -51,16 +71,12 @@ public final class CardsShow implements Show {
         private static final float CARD_SCALE = 0.55F;
         private static final float CHOSEN_SCALE = 0.8F;
         private static final float CHOSEN_Y = 0.1F;
-        private static final Material BACK = Material.MAP;
 
         private static final int DEAL_TICKS = 8;
         private static final int SWAP_TICKS = 8;
-        private static final int[] SWAPS = {3, 4, 5, 6};
-        private static final int[] CHARGE_TICKS = {6, 14, 24, 36};
-        private static final int[] FLIP_TICKS = {4, 5, 6, 8};
-        private static final int[] HOLD_TICKS = {25, 35, 45, 55};
 
         private final ShowContext context;
+        private final Settings settings;
         private final RewardView target;
         private final int tier;
         private final float revealScale;
@@ -71,8 +87,9 @@ public final class CardsShow implements Show {
         private final Reveal.Label label;
         private final Timeline timeline = new Timeline();
 
-        Instance(ShowContext context, ShowRound round) {
+        Instance(ShowContext context, ShowRound round, Settings settings) {
             this.context = context;
+            this.settings = settings;
             this.target = round.target();
             this.tier = context.tierOf(this.target);
             this.revealScale = Reveal.itemScale(this.tier);
@@ -80,7 +97,7 @@ public final class CardsShow implements Show {
 
             for (int index = 0; index < CARDS; index++) {
                 this.cards.add(context.spawn(this.center, ItemDisplay.class, display -> {
-                    display.setItemStack(new ItemStack(BACK));
+                    display.setItemStack(new ItemStack(settings.cardItem()));
                     display.setItemDisplayTransform(ItemDisplay.ItemDisplayTransform.FIXED);
                     display.setBillboard(Display.Billboard.VERTICAL);
                     display.setTransformation(card(0, 0, 0, 0, 0));
@@ -107,7 +124,7 @@ public final class CardsShow implements Show {
             int shuffleStart = 1 + CARDS * 2 + DEAL_TICKS;
 
             // Shuffle: pairs of cards trade places, one lifting over the other.
-            int swaps = SWAPS[this.tier];
+            int swaps = this.settings.swaps()[this.tier];
             for (int swap = 0; swap < swaps; swap++) {
                 int at = shuffleStart + swap * SWAP_TICKS;
                 int slotA = random.nextInt(CARDS);
@@ -146,7 +163,7 @@ public final class CardsShow implements Show {
 
             // Charge: the chosen card glows and throbs; light gathers on it.
             int chargeStart = chooseAt + 8;
-            int chargeTicks = CHARGE_TICKS[this.tier];
+            int chargeTicks = this.settings.chargeTicks()[this.tier];
             Particle.DustOptions dust = Reveal.dust(this.target, this.tier);
             this.timeline.at(chargeStart, () -> {
                 if (this.tier >= 1) {
@@ -175,7 +192,7 @@ public final class CardsShow implements Show {
 
             // Flip: turn edge-on, swap the face, turn back. The others fall away.
             int flipStart = chargeStart + chargeTicks;
-            int flipTicks = FLIP_TICKS[this.tier];
+            int flipTicks = this.settings.flipTicks()[this.tier];
             float quarter = (float) (Math.PI / 2);
             this.timeline.at(flipStart, () -> {
                 Displays.animate(chosen, card(0, CHOSEN_Y, 0, CHOSEN_SCALE, quarter), flipTicks);
@@ -201,7 +218,7 @@ public final class CardsShow implements Show {
             });
             this.timeline.at(revealAt + 3, this.label::grow);
 
-            int holdEnd = revealAt + flipTicks + 4 + HOLD_TICKS[this.tier];
+            int holdEnd = revealAt + flipTicks + 4 + this.settings.holdTicks()[this.tier];
             this.timeline.during(revealAt + flipTicks + 4, holdEnd, step -> {
                 if (step % 5 == 0) {
                     Reveal.sparkle(this.context, this.center, CHOSEN_Y, this.revealScale, this.target, this.tier);

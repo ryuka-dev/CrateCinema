@@ -1,5 +1,6 @@
 // Stage 1 integration tests. Usage: node tests.js [testName ...]  (no args = all except "reload")
 const fs = require('fs');
+const path = require('path');
 const h = require('./harness');
 
 const crate = JSON.parse(fs.readFileSync(__dirname + '/crate.json', 'utf8'));
@@ -39,6 +40,38 @@ async function openBatchOfThree(b) {
 
 const started = (log, name) => log.includes(`Started show 'cinema_test' for ${name}`);
 const ended = (log, name, reason) => new RegExp(`Ended show 'cinema_test' for [0-9a-f-]+: ${reason}`).test(log);
+
+
+// Bukkit /reload is unsupported (see README); not in the default run.
+const MANUAL = ['bukkitReload'];
+
+const PLUGIN_DIR = path.join(__dirname, '..', 'run', 'plugins', 'CrateCinema');
+
+/**
+ * Runs body with edited CrateCinema config files, then restores them and reloads.
+ * edits: { 'config.yml': [[regex, replacement], ...], 'shows/orbit.yml': [...] }
+ */
+async function withConfig(edits, body) {
+  const originals = {};
+  try {
+    for (const [file, changes] of Object.entries(edits)) {
+      const full = path.join(PLUGIN_DIR, file);
+      originals[full] = fs.readFileSync(full, 'utf8');
+      let text = originals[full];
+      for (const [pattern, replacement] of changes) {
+        if (!pattern.test(text)) throw new Error(`pattern ${pattern} not found in ${file}`);
+        text = text.replace(pattern, replacement);
+      }
+      fs.writeFileSync(full, text);
+    }
+    const reply = await h.cmd('cratecinema reload');
+    if (!reply.includes('reloaded')) throw new Error('reload failed: ' + reply);
+    await body();
+  } finally {
+    for (const [full, text] of Object.entries(originals)) fs.writeFileSync(full, text);
+    await h.cmd('cratecinema reload');
+  }
+}
 
 const tests = {
   async normal() {
@@ -270,8 +303,101 @@ const tests = {
     }
   },
 
+
+  async configReload() {
+    const b = await bot('Bot1');
+    await withConfig({ 'bindings.yml': [[/cinema_test_crate: cinema_test/, 'cinema_test_crate: simple']] }, async () => {
+      await prep('Bot1');
+      const mark = h.logMark();
+      await open(b);
+      h.check('configReload: new binding applies without a restart', await h.waitFor(() => h.logSince(mark).includes("Started show 'simple' for Bot1"), 2000));
+      h.check('configReload: simple show grants', await h.waitFor(() => h.rewards(b) === 1, 10000), `rewards=${h.rewards(b)}`);
+    });
+    // An invalid value: warned about, default used, reload still applied.
+    const mark = h.logMark();
+    await withConfig({ 'shows/orbit.yml': [[/spin-ticks: .*/, 'spin-ticks: lots']] }, async () => {
+      h.check('configReload: invalid value is reported', /orbit\.yml: 'spin-ticks' should be/.test(h.logSince(mark)));
+    });
+  },
+
+  async limits() {
+    const b1 = await bot('Bot1'); const b2 = await bot('Bot2');
+    await withConfig({ 'config.yml': [[/max-concurrent-shows: \d+/, 'max-concurrent-shows: 1']] }, async () => {
+      await prep('Bot1', 1, -1); await prep('Bot2', 1, 1);
+      const mark = h.logMark();
+      await open(b1);
+      await h.waitFor(() => started(h.logSince(mark), 'Bot1'), 2000);
+      await open(b2);
+      await h.sleep(1000);
+      h.check('limits: second opening gets no show at the limit', !started(h.logSince(mark), 'Bot2'));
+      h.check('limits: and is granted by ExcellentCrates at once', h.rewards(b2) === 1 && h.keys(b2) === 0, `rewards=${h.rewards(b2)} keys=${h.keys(b2)}`);
+      h.check('limits: the first show still completes', await h.waitFor(() => h.rewards(b1) === 1, SHOW_MS + 2000));
+    });
+  },
+
+  async timeout() {
+    const file = __dirname + '/showcase.json';
+    if (!fs.existsSync(file)) { console.log('skipped: run "node setup.js showcase 3" first'); return; }
+    const showcase = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const block = new h.Vec3(showcase.x, showcase.y, showcase.z);
+    const b = await bot('Bot1');
+    await withConfig({
+      'config.yml': [[/max-show-seconds: \d+/, 'max-show-seconds: 5']],
+      'shows/orbit.yml': [[/hold-ticks: .*/, 'hold-ticks: 200']],
+    }, async () => {
+      await h.cmd('clear Bot1');
+      await h.cmd(`tp Bot1 ${showcase.stand.x + 0.5} ${showcase.stand.y} ${showcase.stand.z + 0.5} 0 0`);
+      await h.cmd(`cratekey give Bot1 ${h.KEY_ID} 1`);
+      await h.sleep(1200);
+      const mark = h.logMark();
+      await b.lookAt(block.offset(0.5, 0.5, 0.5), true);
+      await b.activateBlock(b.blockAt(block));
+      const t0 = Date.now();
+      const timedOut = await h.waitFor(() => /Ended show 'orbit' for [0-9a-f-]+: TIMEOUT/.test(h.logSince(mark)), 9000);
+      h.check('timeout: an over-long show is ended by the limit', timedOut, `after ${((Date.now() - t0) / 1000).toFixed(1)}s`);
+      h.check('timeout: and its reward is granted', await h.waitFor(() => count(b) === 1, 2000), `items=${count(b)}`);
+    });
+  },
+
+  async audience() {
+    const b1 = await bot('Bot1'); const b2 = await bot('Bot2');
+    await withConfig({ 'config.yml': [[/audience: viewer/, 'audience: nearby']] }, async () => {
+      await prep('Bot1', 1, -1); await prep('Bot2', 0, 1);
+      const mark = h.logMark();
+      await open(b1);
+      await h.waitFor(() => started(h.logSince(mark), 'Bot1'), 2000);
+      await h.sleep(800);
+      h.check('audience: a nearby player sees the show in nearby mode', h.displaysNear(b2, crateCenter) === 1, `Bot2 sees ${h.displaysNear(b2, crateCenter)}`);
+      await h.waitFor(() => h.rewards(b1) === 1, SHOW_MS + 2000);
+    });
+  },
+
+  async particles() {
+    const b = await bot('Bot1');
+    const countParticles = async (seconds) => {
+      // Only the types orbit uses; the crates' own ExcellentCrates effect sends flame particles.
+      const ours = ['end_rod', 'dust', 'firework', 'totem_of_undying'];
+      let n = 0; const on = (particle) => { if (ours.includes(particle.name)) n++; };
+      b.on('particle', on);
+      await h.cmd(`execute as Bot1 at Bot1 run tp @s ${crate.stand.x + 0.5} ${crate.stand.y} ${crate.stand.z + 0.5} 0 0`);
+      b.chat('/cratecinema preview orbit 3');
+      await h.sleep(seconds * 1000);
+      b.removeListener('particle', on);
+      return n;
+    };
+    await h.cmd('op Bot1');
+    await prep('Bot1', 0);
+    await b.lookAt(crateCenter, true);
+    const normal = await countParticles(14);
+    let none = -1;
+    await withConfig({ 'config.yml': [[/particle-density: [\d.]+/, 'particle-density: 0']] }, async () => {
+      none = await countParticles(14);
+    });
+    h.check('particles: density 0 sends no show particles', normal > 0 && none === 0, `normal=${normal} with density 0=${none}`);
+  },
+
   // Bukkit /reload: disables and re-enables every plugin. Not in the default run.
-  async reload() {
+  async bukkitReload() {
     const b = await bot('Bot1'); await prep('Bot1');
     let mark = h.logMark();
     await open(b);
@@ -293,7 +419,7 @@ const tests = {
 (async () => {
   await h.rconConnect();
   const wanted = process.argv.slice(2);
-  const order = wanted.length ? wanted : Object.keys(tests).filter(t => t !== 'reload');
+  const order = wanted.length ? wanted : Object.keys(tests).filter(t => !MANUAL.includes(t));
   for (const name of order) {
     console.log(`\n== ${name}`);
     try { await tests[name](); } catch (e) { h.check(`${name}: ran without error`, false, e.stack); }
