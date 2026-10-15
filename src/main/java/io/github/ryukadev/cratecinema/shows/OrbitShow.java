@@ -50,6 +50,11 @@ public final class OrbitShow implements Show {
         private static final float RING_SCALE = 0.45F;
         private static final float HERO_SCALE = 0.6F;
         private static final float HERO_RISE = 0.25F;
+        private static final float LABEL_SCALE = 0.6F;
+        /** Height of one text line at scale 1, in blocks. */
+        private static final float LINE_HEIGHT = 0.25F;
+        private static final float LABEL_GAP = 0.12F;
+        private static final float BURST_RADIUS = 1.2F;
         private static final int MIN_RING = 6;
         private static final int MAX_RING = 8;
         /** Ticks between ring keyframes; the client interpolates in between. */
@@ -71,6 +76,9 @@ public final class OrbitShow implements Show {
         private final int heroIndex;
         private final Timeline timeline = new Timeline();
         private final TextDisplay label;
+        private final float revealScale;
+        /** Label anchor height; text grows upward from it, so this is the label's bottom edge. */
+        private final float labelY;
 
         Instance(ShowContext context, ShowRound round) {
             this.context = context;
@@ -96,7 +104,12 @@ public final class OrbitShow implements Show {
                 }));
             }
 
-            this.label = this.spawnLabel();
+            this.revealScale = 0.9F + 0.1F * this.tier;
+            String text = labelText(this.target);
+            int lines = (int) text.lines().count();
+            // Item displays are about one block tall at scale 1; keep the text clear of the item's bottom edge.
+            this.labelY = HERO_RISE - this.revealScale / 2.0F - LABEL_GAP - lines * LINE_HEIGHT * LABEL_SCALE;
+            this.label = this.spawnLabel(text);
             this.script();
         }
 
@@ -216,14 +229,14 @@ public final class OrbitShow implements Show {
             });
 
             // Reveal: pop, burst, fanfare, name.
-            float revealScale = 0.9F + 0.1F * this.tier;
+            float revealScale = this.revealScale;
             this.timeline.at(revealAt, () -> {
                 Displays.animate(hero, Displays.at(0, HERO_RISE, 0, revealScale * 1.25F), 4);
                 this.burst(dust);
                 this.fanfare();
             });
             this.timeline.at(revealAt + 4, () -> Displays.animate(hero, Displays.at(0, HERO_RISE, 0, revealScale), 6));
-            this.timeline.at(revealAt + 2, () -> Displays.animate(this.label, Displays.at(0, -0.55F, 0, 1.0F), 5));
+            this.timeline.at(revealAt + 2, () -> Displays.animate(this.label, Displays.at(0, this.labelY, 0, LABEL_SCALE), 5));
 
             // Hold: bob gently, sparkle.
             this.timeline.during(revealAt + 10, holdEnd, step -> {
@@ -232,14 +245,15 @@ public final class OrbitShow implements Show {
                     Displays.animate(hero, Displays.at(0, HERO_RISE + bob, 0, revealScale), 20);
                 }
                 if (this.tier >= 1 && step % 5 == 0) {
-                    this.context.particle(Particle.DUST, this.world(0, HERO_RISE), 2, 0.35, 0.0, dust);
+                    // Above the item, clear of the label below it.
+                    this.context.particle(Particle.DUST, this.world(0, HERO_RISE + this.revealScale / 2.0F), 2, 0.25, 0.0, dust);
                 }
             });
 
             // Out.
             this.timeline.at(holdEnd, () -> {
                 Displays.animate(hero, Displays.at(0, HERO_RISE, 0, 0), 6);
-                Displays.animate(this.label, Displays.at(0, -0.55F, 0, 0), 6);
+                Displays.animate(this.label, Displays.at(0, this.labelY, 0, 0), 6);
             });
             this.timeline.endAt(holdEnd + 6);
         }
@@ -248,7 +262,7 @@ public final class OrbitShow implements Show {
             int points = 24 + 12 * this.tier;
             for (int index = 0; index < points; index++) {
                 double angle = Math.PI * 2 * index / points;
-                this.context.particle(Particle.DUST, this.world(Math.cos(angle) * 0.9, HERO_RISE + Math.sin(angle) * 0.9), 1, 0.0, 0.0, dust);
+                this.context.particle(Particle.DUST, this.world(Math.cos(angle) * BURST_RADIUS, HERO_RISE + Math.sin(angle) * BURST_RADIUS), 1, 0.0, 0.0, dust);
             }
             Location heroAt = this.world(0, HERO_RISE);
             if (this.tier >= 2) {
@@ -279,15 +293,15 @@ public final class OrbitShow implements Show {
         }
 
         /** Spawns the label invisibly small; it grows in at the reveal. */
-        private TextDisplay spawnLabel() {
-            String text = labelText(this.target);
+        private TextDisplay spawnLabel(String text) {
             return this.context.spawn(this.center, TextDisplay.class, display -> {
                 Displays.setText(display, text);
                 display.setBillboard(Display.Billboard.CENTER);
                 display.setAlignment(TextDisplay.TextAlignment.CENTER);
-                display.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
+                // A light backing keeps the text readable over sky and particles.
+                display.setBackgroundColor(Color.fromARGB(96, 0, 0, 0));
                 display.setShadowed(true);
-                display.setTransformation(Displays.at(0, -0.55F, 0, 0));
+                display.setTransformation(Displays.at(0, this.labelY, 0, 0));
             });
         }
 

@@ -40,7 +40,7 @@ animation:
   enabled: false
   profile: none:null
 effect:
-  enabled: true
+  enabled: false
   profile: helix:default
 key_requirements:
   enabled: true
