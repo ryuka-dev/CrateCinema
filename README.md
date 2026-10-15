@@ -3,12 +3,20 @@
 Cinematic, in-world opening shows for [ExcellentCrates](https://modrinth.com/plugin/excellentcrates).
 Keys, reward pools and the crate editor stay with ExcellentCrates; this plugin only adds the show.
 
+<p>
+  <img src="docs/media/starfall.gif" width="49%" alt="Starfall: a meteor strikes the crate">
+  <img src="docs/media/cards.gif" width="49%" alt="Cards: one of five shuffled cards flips over">
+</p>
+
 ## Features
 
 - **Four shows**: `orbit` (a ring of rewards that spins and narrows down to the winner), `starfall`
   (a meteor strikes the crate), `cards` (shuffled cards, one flips over) and `rift` (a portal tear
   swallows the pool and pushes the reward out). There is also a text-only `simple` show.
 - **Rarity tiers**: rarer rewards build up longer, glow in their rarity colour and end bigger.
+
+  <img src="docs/media/starfall-tiers.gif" width="80%" alt="Starfall at all four tiers, from common to legendary">
+
 - **Private by default**: only the player opening the crate sees their show, so a crowd can open
   the same crate at once. Showing it to nearby players is one setting.
 - **Batch openings stay short**: one show for the best reward, then the whole batch at a glance.
