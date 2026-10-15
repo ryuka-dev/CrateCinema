@@ -1,0 +1,7 @@
+name: CrateCinema
+version: '${version}'
+main: io.github.ryukadev.cratecinema.CrateCinemaPlugin
+description: In-world opening animations for ExcellentCrates.
+authors: [Ryuka]
+api-version: '1.21'
+depend: [nightcore, ExcellentCrates]
