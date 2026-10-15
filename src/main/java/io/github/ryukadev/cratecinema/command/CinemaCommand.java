@@ -16,6 +16,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabExecutor;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 
 import io.github.ryukadev.cratecinema.config.LiveConfig;
 import io.github.ryukadev.cratecinema.engine.RarityView;
@@ -104,13 +105,30 @@ public final class CinemaCommand implements TabExecutor {
         ItemStack held = player.getInventory().getItemInMainHand();
         ItemStack icon = held.getType().isAir() ? new ItemStack(Material.NETHER_STAR) : held.clone();
         RarityView rarity = new RarityView("preview_" + tier, TIER_NAMES[tier], TIER_COLORS[tier]);
-        RewardView target = new RewardView(icon, "§fPreview", rarity, 0.05);
+        RewardView target = new RewardView(icon, "§f" + displayName(icon), rarity, 0.05);
         List<RewardView> fillers = new ArrayList<>();
         for (Material material : FILLERS) {
             fillers.add(new RewardView(new ItemStack(material), "", null, Double.NaN));
         }
         ShowRequest request = new ShowRequest(player, anchor(player), List.of(new ShowRound(target, fillers)));
         this.sessions.play(show.get(), request, () -> { }, PREVIEW_TIERS);
+    }
+
+    /** The item's own name if it has one, otherwise its material written as words. */
+    @SuppressWarnings("deprecation") // legacy-string names match the rest of the label text
+    private static String displayName(ItemStack item) {
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null && meta.hasDisplayName()) {
+            return meta.getDisplayName();
+        }
+        StringBuilder name = new StringBuilder();
+        for (String word : item.getType().name().toLowerCase(Locale.ROOT).split("_")) {
+            if (!name.isEmpty()) {
+                name.append(' ');
+            }
+            name.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+        }
+        return name.toString();
     }
 
     /** Above the block the player looks at, or in front of them. */
