@@ -38,6 +38,27 @@ async function openBatchOfThree(b) {
   await b.clickWindow(4, 0, 0);
 }
 
+/** The native_test crate placed by "node setup.js native_test -3", or null (and a note) if it is not. */
+function nativeCrateOrSkip() {
+  const file = h.positionFile('native_test');
+  if (!fs.existsSync(file)) { console.log('skipped: run "node setup.js native_test -3" first'); return null; }
+  const position = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const block = new h.Vec3(position.x, position.y, position.z);
+  return { block, center: block.offset(0.5, 0.5, 0.5), stand: position.stand };
+}
+
+async function prepAt(name, target) {
+  await h.cmd(`clear ${name}`);
+  await h.cmd(`tp ${name} ${target.stand.x + 0.5} ${target.stand.y} ${target.stand.z + 0.5} 0 0`);
+  await h.cmd(`cratekey give ${name} ${h.KEY_ID} 1`);
+  await h.sleep(800);
+}
+
+async function openAt(b, target) {
+  await b.lookAt(target.center, true);
+  await b.activateBlock(b.blockAt(target.block));
+}
+
 const started = (log, name) => log.includes(`Started show 'cinema_test' for ${name}`);
 const ended = (log, name, reason) => new RegExp(`Ended show 'cinema_test' for [0-9a-f-]+: ${reason}`).test(log);
 
@@ -262,6 +283,58 @@ const tests = {
     h.check('orbit: everything removed', await h.waitFor(() => h.displaysNear(b, center, 4) === 0, 1500));
     h.check('orbit: hologram back afterwards', await h.waitFor(() => hologramIds().length === hologram.length, 3000),
       `hologram entities=${hologramIds().length}`);
+  },
+
+  // The test show as an ExcellentCrates animation type: the native_test crate selects
+  // cratecinema_cinema_test:default in its own animation settings and is not in bindings.yml
+  // (node setup.js native_test -3). Skipped if that crate is not set up.
+  async native() {
+    const nativeCrate = nativeCrateOrSkip();
+    if (!nativeCrate) return;
+    const whole = h.logSince(0);
+    h.check('native: show registered as an animation type', whole.includes('Registered 1 show(s) as ExcellentCrates animation types'));
+    h.check('native: ExcellentCrates wrote its profile file',
+      fs.existsSync(path.join(h.RUN_DIR, 'plugins', 'ExcellentCrates', 'objects', 'animations', 'cratecinema_cinema_test', 'default.yml')));
+    h.check('native: no missing-profile warning', !/No animation profile found|No instantiator found/.test(whole));
+
+    const b = await bot('Bot1'); await prepAt('Bot1', nativeCrate);
+    const mark = h.logMark();
+    await openAt(b, nativeCrate);
+    h.check('native: show starts', await h.waitFor(() => started(h.logSince(mark), 'Bot1'), 2000));
+    h.check('native: key taken at start', await h.waitFor(() => h.keys(b) === 0, 1500), `keys=${h.keys(b)}`);
+    h.check('native: viewer sees the display entity', await h.waitFor(() => h.displaysNear(b, nativeCrate.center) === 1, 1500));
+    h.check('native: no reward before the show ends', h.rewards(b) === 0, `rewards=${h.rewards(b)}`);
+    h.check('native: reward granted when show ends', await h.waitFor(() => h.rewards(b) === 1, SHOW_MS + 2000), `rewards=${h.rewards(b)}`);
+    h.check('native: ended as FINISHED', ended(h.logSince(mark), 'Bot1', 'FINISHED'));
+    h.check('native: display entity removed', await h.waitFor(() => h.displaysNear(b, nativeCrate.center) === 0, 1500));
+    await h.sleep(1000);
+    h.check('native: exactly one reward', h.rewards(b) === 1, `rewards=${h.rewards(b)}`);
+  },
+
+  // Quitting mid-show: ExcellentCrates stops the session and our own listener ends the show; the
+  // opening must complete exactly once.
+  async nativeQuit() {
+    const nativeCrate = nativeCrateOrSkip();
+    if (!nativeCrate) return;
+    let b = await bot('Bot1'); await prepAt('Bot1', nativeCrate);
+    const mark = h.logMark();
+    await openAt(b, nativeCrate);
+    await h.waitFor(() => started(h.logSince(mark), 'Bot1'), 2000);
+    await h.sleep(1000);
+    await h.quitBot(b); bots.Bot1 = null;
+    await h.sleep(1000);
+    h.check('nativeQuit: show ended', /Ended show 'cinema_test' for [0-9a-f-]+: (QUIT|STOPPED)/.test(h.logSince(mark)));
+    b = await bot('Bot1');
+    await h.sleep(1500);
+    h.check('nativeQuit: exactly one reward after rejoin', h.rewards(b) === 1, `rewards=${h.rewards(b)}`);
+    h.check('nativeQuit: no display left', h.displaysNear(b, nativeCrate.center) === 0);
+    // A new opening must not be refused as "still watching".
+    await h.cmd(`cratekey give Bot1 ${h.KEY_ID} 1`);
+    await h.sleep(800);
+    const again = h.logMark();
+    await openAt(b, nativeCrate);
+    h.check('nativeQuit: can open again afterwards', await h.waitFor(() => started(h.logSince(again), 'Bot1'), 2000));
+    await h.waitFor(() => h.rewards(b) === 2, SHOW_MS + 2000);
   },
 
   // Every show through /cratecinema preview at the lowest and highest tier: it must finish, leave

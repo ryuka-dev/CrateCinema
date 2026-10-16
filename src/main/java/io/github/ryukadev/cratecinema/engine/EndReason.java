@@ -13,5 +13,7 @@ public enum EndReason {
     /** Ran past the configured maximum show length. */
     TIMEOUT,
     /** The crate plugin is going away or this plugin is being disabled. */
-    SHUTDOWN
+    SHUTDOWN,
+    /** The crate plugin ended the show itself. */
+    STOPPED
 }

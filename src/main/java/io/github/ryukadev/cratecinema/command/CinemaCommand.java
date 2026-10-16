@@ -11,12 +11,13 @@ import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
-import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.command.TabExecutor;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+
+import io.papermc.paper.command.brigadier.BasicCommand;
+import io.papermc.paper.command.brigadier.CommandSourceStack;
 
 import io.github.ryukadev.cratecinema.config.LiveConfig;
 import io.github.ryukadev.cratecinema.engine.RarityView;
@@ -36,7 +37,11 @@ import io.github.ryukadev.cratecinema.engine.Tiers;
  * <li>{@code reload} reads the configuration files again. Running shows are not affected.</li>
  * </ul>
  */
-public final class CinemaCommand implements TabExecutor {
+public final class CinemaCommand implements BasicCommand {
+
+    public static final String LABEL = "cratecinema";
+    public static final String DESCRIPTION = "Preview shows and reload the configuration.";
+    private static final String PERMISSION = "cratecinema.admin";
 
     private static final String[] TIER_NAMES = {"§fCommon", "§9Rare", "§dEpic", "§6Legendary"};
     private static final Color[] TIER_COLORS = {Color.WHITE, Color.fromRGB(85, 85, 255), Color.fromRGB(170, 0, 170), Color.fromRGB(255, 170, 0)};
@@ -61,21 +66,26 @@ public final class CinemaCommand implements TabExecutor {
     }
 
     @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+    public String permission() {
+        return PERMISSION;
+    }
+
+    @Override
+    public void execute(CommandSourceStack source, String[] args) {
+        CommandSender sender = source.getSender();
         if (args.length >= 1 && args[0].equalsIgnoreCase("reload")) {
             boolean applied = this.reload.getAsBoolean();
             sender.sendMessage(applied
                 ? "§aCrateCinema configuration reloaded. Shows already running are not affected."
                 : "§cCould not reload; the previous configuration is still in use. See the console.");
-            return true;
+            return;
         }
         if (args.length >= 2 && args[0].equalsIgnoreCase("preview")) {
             this.preview(sender, args);
-            return true;
+            return;
         }
-        sender.sendMessage("§eUsage: /" + label + " preview <show> [tier 0-" + Tiers.MAX + "] | /" + label + " reload");
+        sender.sendMessage("§eUsage: /" + LABEL + " preview <show> [tier 0-" + Tiers.MAX + "] | /" + LABEL + " reload");
         sender.sendMessage("§eShows: " + this.config.showIds());
-        return true;
     }
 
     private void preview(CommandSender sender, String[] args) {
@@ -141,8 +151,11 @@ public final class CinemaCommand implements TabExecutor {
     }
 
     @Override
-    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (args.length == 1) {
+    public List<String> suggest(CommandSourceStack source, String[] args) {
+        if (args.length <= 1) {
+            if (args.length == 0) {
+                return List.of("preview", "reload");
+            }
             return List.of("preview", "reload").stream().filter(sub -> sub.startsWith(args[0].toLowerCase(Locale.ROOT))).toList();
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("preview")) {

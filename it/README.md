@@ -18,6 +18,8 @@ plugin's debug log.
    checks, `node setup.js showcase 3` places the `showcase` crate (eight rewards across all five
    rarities, bound to `orbit`) three blocks to the right, and `node setup.js csgo_compare 6` places
    `csgo_compare` (the same rewards with ExcellentCrates' own CSGO animation) for comparison.
+   `node setup.js native_test -3` places `native_test`, which selects the test show through
+   ExcellentCrates' own animation setting.
 5. `npm test` runs every scenario except `bukkitReload`. Run single scenarios with
    `node tests.js quit death`.
 
@@ -45,6 +47,8 @@ them.
 | batch | A 3× opening plays 3 rounds in one session and grants all rewards at the end |
 | batchInterrupt | Interrupting a batch grants all of its rewards |
 | orbit | On the showcase crate: the ring spawns, the crate hologram is hidden from the viewer and comes back afterwards, and the reward arrives at the end |
+| native | On the `native_test` crate, which selects `cratecinema_cinema_test:default` as its ExcellentCrates animation instead of a binding: the show is registered as an animation type, ExcellentCrates writes its profile file, and the opening plays and grants exactly once |
+| nativeQuit | Quitting mid-show on `native_test` completes the opening exactly once, and the player can open again afterwards |
 | previews | Every show at tiers 0 and 3 through `/cratecinema preview`: each finishes, logs no errors and leaves no display entities on the server |
 | configReload | Rebinding a crate takes effect after `/cratecinema reload` without a restart; an invalid value is reported |
 | limits | With `max-concurrent-shows: 1`, a second opening gets the normal ExcellentCrates opening |

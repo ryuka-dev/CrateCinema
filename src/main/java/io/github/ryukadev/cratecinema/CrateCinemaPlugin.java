@@ -2,15 +2,17 @@ package io.github.ryukadev.cratecinema;
 
 import java.util.logging.Level;
 
-import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jspecify.annotations.Nullable;
+
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 
 import io.github.ryukadev.cratecinema.command.CinemaCommand;
 import io.github.ryukadev.cratecinema.config.LiveConfig;
 import io.github.ryukadev.cratecinema.engine.Diagnostics;
 import io.github.ryukadev.cratecinema.engine.SessionListener;
 import io.github.ryukadev.cratecinema.engine.SessionManager;
+import io.github.ryukadev.cratecinema.integration.excellentcrates.AnimationRegistration;
 import io.github.ryukadev.cratecinema.integration.excellentcrates.ExcellentCratesIntegration;
 import io.github.ryukadev.cratecinema.integration.floodgate.FloodgateBedrockPlayers;
 import io.github.ryukadev.cratecinema.platform.BedrockPlayers;
@@ -37,15 +39,13 @@ public final class CrateCinemaPlugin extends JavaPlugin {
         this.sessions = sessionManager;
         this.getServer().getPluginManager().registerEvents(new SessionListener(sessionManager), this);
 
-        PluginCommand command = this.getCommand("cratecinema");
-        if (command != null) {
-            CinemaCommand handler = new CinemaCommand(liveConfig, sessionManager, this::reload);
-            command.setExecutor(handler);
-            command.setTabCompleter(handler);
-        }
+        CinemaCommand command = new CinemaCommand(liveConfig, sessionManager, this::reload);
+        this.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS,
+            event -> event.registrar().register(CinemaCommand.LABEL, CinemaCommand.DESCRIPTION, command));
 
         BedrockPlayers bedrock = this.bedrockPlayers();
         try {
+            new AnimationRegistration(this, liveConfig, sessionManager).start();
             ExcellentCratesIntegration excellentCrates = new ExcellentCratesIntegration(this, sessionManager, liveConfig, bedrock);
             excellentCrates.start();
             this.integration = excellentCrates;

@@ -12,6 +12,7 @@ import io.github.ryukadev.cratecinema.engine.RarityView;
 import io.github.ryukadev.cratecinema.engine.RewardView;
 import io.github.ryukadev.cratecinema.engine.ShowRequest;
 import io.github.ryukadev.cratecinema.engine.ShowRound;
+import su.nightexpress.excellentcrates.api.animation.AnimationContext;
 import su.nightexpress.excellentcrates.api.crate.pipeline.component.CrateRewardsPipelineComponent;
 import su.nightexpress.excellentcrates.api.crate.pipeline.component.CrateSourcePipelineComponent;
 import su.nightexpress.excellentcrates.api.crate.pipeline.component.PipelineComponentKeys;
@@ -26,7 +27,8 @@ import su.nightexpress.excellentcrates.api.reward.preview.RewardPreviewAPI;
 import su.nightexpress.nightcore.util.text.night.NightMessage;
 
 /**
- * Translates an ExcellentCrates pipeline into the engine's show request.
+ * Translates an ExcellentCrates opening (a pipeline, or an animation session) into the engine's
+ * show request.
  */
 final class ShowRequests {
 
@@ -47,13 +49,23 @@ final class ShowRequests {
             // Each target was rolled from the pool recorded as its fillers; selectable-reward
             // crates record none.
             List<Reward> pool = index < fillers.size() ? fillers.get(index) : List.of();
-            double totalWeight = pool.stream().mapToDouble(Reward::getWeight).sum();
-            // Shows display what will actually be granted, which reward limits may have changed.
-            RewardView target = this.view(targets.get(index).getGranted(), totalWeight);
-            List<RewardView> roundFillers = pool.stream().map(reward -> this.view(reward, totalWeight)).toList();
-            rounds.add(new ShowRound(target, roundFillers));
+            rounds.add(this.round(targets.get(index), pool));
         }
         return new ShowRequest(player, anchor(player, context), rounds);
+    }
+
+    /** One reward of an ExcellentCrates animation session, which plays a batch one reward at a time. */
+    ShowRequest create(AnimationContext context) {
+        ShowRound round = this.round(context.reward(), context.availableRewards());
+        return new ShowRequest(context.player(), anchor(context.location()), List.of(round));
+    }
+
+    private ShowRound round(PipelineReward target, List<Reward> pool) {
+        double totalWeight = pool.stream().mapToDouble(Reward::getWeight).sum();
+        // Shows display what will actually be granted, which reward limits may have changed.
+        RewardView targetView = this.view(target.getGranted(), totalWeight);
+        List<RewardView> fillers = pool.stream().map(reward -> this.view(reward, totalWeight)).toList();
+        return new ShowRound(targetView, fillers);
     }
 
     private RewardView view(Reward reward, double poolWeight) {
@@ -82,14 +94,27 @@ final class ShowRequests {
         CrateSourcePipelineComponent source = context.getComponentOrNull(PipelineComponentKeys.CRATE_SOURCE);
         Location sourceLocation = source == null ? null : source.getLocation();
         if (sourceLocation != null) {
-            Block block = sourceLocation.getBlock();
-            double height = block.getBoundingBox().getHeight();
-            return block.getLocation().add(0.5, height + 0.5, 0.5);
+            return above(sourceLocation.getBlock());
         }
 
         Block front = player.getLocation().getBlock().getRelative(player.getFacing());
         Location anchor = front.getLocation().add(0.5, 0.0, 0.5);
         anchor.setY(player.getEyeLocation().getY());
         return anchor;
+    }
+
+    /**
+     * ExcellentCrates passes an animation the crate block's location, or, for an opening without a
+     * block, a point in front of the player at eye height.
+     */
+    // TODO: tell the two apart by the crate's linked block positions instead of by the block there.
+    private static Location anchor(Location location) {
+        Block block = location.getBlock();
+        return block.isPassable() ? location.clone() : above(block);
+    }
+
+    private static Location above(Block block) {
+        double height = block.getBoundingBox().getHeight();
+        return block.getLocation().add(0.5, height + 0.5, 0.5);
     }
 }

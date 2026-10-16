@@ -5,14 +5,23 @@ description: In-world opening animations for ExcellentCrates.
 authors: [Ryuka]
 website: https://github.com/ryuka-dev/CrateCinema
 api-version: '1.21'
-depend: [nightcore, ExcellentCrates]
-softdepend: [floodgate]
 
-commands:
-  cratecinema:
-    description: Preview shows and reload the configuration.
-    usage: /cratecinema preview <show> [tier] | /cratecinema reload
-    permission: cratecinema.admin
+# ExcellentCrates fires its bootstrap events while it is being enabled; we have to be enabled
+# (and listening) before that, so it loads after us.
+dependencies:
+  server:
+    nightcore:
+      load: BEFORE
+      required: true
+      join-classpath: true
+    ExcellentCrates:
+      load: AFTER
+      required: true
+      join-classpath: true
+    floodgate:
+      load: BEFORE
+      required: false
+      join-classpath: true
 
 permissions:
   cratecinema.admin:

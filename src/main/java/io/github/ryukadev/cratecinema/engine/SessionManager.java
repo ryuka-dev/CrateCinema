@@ -103,6 +103,18 @@ public final class SessionManager {
         }
     }
 
+    /**
+     * The crate plugin wants the player's opening over now (it is going away, or handled the
+     * interruption itself): ends the show and releases a reward held back since a death.
+     */
+    public void handleStop(UUID playerId) {
+        this.end(playerId, EndReason.STOPPED);
+        Completion held = this.heldCompletions.remove(playerId);
+        if (held != null) {
+            held.run();
+        }
+    }
+
     public void handleDeath(UUID playerId) {
         this.end(playerId, EndReason.DEATH);
     }
