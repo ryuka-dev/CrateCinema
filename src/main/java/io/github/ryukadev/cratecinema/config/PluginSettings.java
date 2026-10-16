@@ -8,15 +8,7 @@ import io.github.ryukadev.cratecinema.engine.Tiers;
  *
  * @param busyMessage sent when a player tries to open a crate while still watching a show; may be empty
  */
-public record PluginSettings(boolean debug, EngineSettings engine, BedrockMode bedrockMode, String busyMessage) {
-
-    /** What Bedrock players get, since their clients cannot show item and block displays. */
-    public enum BedrockMode {
-        /** The crate plugin's own opening, as if the crate were not bound. */
-        CRATE_PLUGIN,
-        /** A text-only show. */
-        SIMPLE
-    }
+public record PluginSettings(boolean debug, EngineSettings engine, String busyMessage) {
 
     static PluginSettings read(SettingsFile config) {
         Tiers tiers = new Tiers(config.intMap("tiers", 0, Tiers.MAX), config.integer("default-tier", 0, Tiers.MAX));
@@ -31,7 +23,6 @@ public record PluginSettings(boolean debug, EngineSettings engine, BedrockMode b
         return new PluginSettings(
             config.bool("debug"),
             engine,
-            config.choice("bedrock.mode", BedrockMode.class),
             colorize(config.text("messages.already-watching")));
     }
 

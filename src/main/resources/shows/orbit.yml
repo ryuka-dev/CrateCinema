@@ -2,8 +2,15 @@
 # won reward is left; it charges in its rarity colour and bursts.
 #
 # Lists have four values, one per tier: [tier 0, tier 1, tier 2, tier 3]. Tiers come from the
-# reward's rarity (see "tiers" in config.yml). A single number applies to every tier.
+# reward's rarity (see "tiers" in CrateCinema's config.yml). A single number applies to every tier.
 # Times are in ticks; 20 ticks = 1 second.
+#
+# This file is an ExcellentCrates animation profile. A crate plays it when its animation is set to
+# cratecinema_orbit:<file name> (this one is cratecinema_orbit:default). Copy it under another file
+# name in this folder for a variant, then run /ecrates reload.
+
+# The name ExcellentCrates shows for this animation in its editor.
+name: Orbit
 
 # Ring radius in blocks (0.6 - 2.0).
 radius: 1.1

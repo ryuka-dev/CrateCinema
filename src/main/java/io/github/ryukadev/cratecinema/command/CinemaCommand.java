@@ -19,11 +19,11 @@ import org.bukkit.inventory.meta.ItemMeta;
 import io.papermc.paper.command.brigadier.BasicCommand;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 
-import io.github.ryukadev.cratecinema.config.LiveConfig;
 import io.github.ryukadev.cratecinema.engine.RarityView;
 import io.github.ryukadev.cratecinema.engine.RewardView;
 import io.github.ryukadev.cratecinema.engine.SessionManager;
 import io.github.ryukadev.cratecinema.engine.Show;
+import io.github.ryukadev.cratecinema.engine.ShowCatalog;
 import io.github.ryukadev.cratecinema.engine.ShowRequest;
 import io.github.ryukadev.cratecinema.engine.ShowRound;
 import io.github.ryukadev.cratecinema.engine.Tiers;
@@ -33,8 +33,10 @@ import io.github.ryukadev.cratecinema.engine.Tiers;
  * <ul>
  * <li>{@code preview <show> [tier]} plays a show for the sender on the block they are looking at,
  * with the held item as the reward. Nothing is rolled, taken or granted; it never touches the
- * crate plugin.</li>
- * <li>{@code reload} reads the configuration files again. Running shows are not affected.</li>
+ * crate plugin. {@code <show>} is a show's default profile ({@code orbit}) or another of its
+ * profiles ({@code orbit:fast}).</li>
+ * <li>{@code reload} reads {@code config.yml} again. Running shows are not affected. The shows'
+ * own settings are ExcellentCrates animation profiles, reloaded with {@code /ecrates reload}.</li>
  * </ul>
  */
 public final class CinemaCommand implements BasicCommand {
@@ -54,13 +56,13 @@ public final class CinemaCommand implements BasicCommand {
     private static final Tiers PREVIEW_TIERS = new Tiers(
         Map.of("preview_0", 0, "preview_1", 1, "preview_2", 2, "preview_3", 3), 0);
 
-    private final LiveConfig config;
+    private final ShowCatalog shows;
     private final SessionManager sessions;
     private final BooleanSupplier reload;
 
     /** @param reload reloads the plugin's configuration and reports whether it succeeded */
-    public CinemaCommand(LiveConfig config, SessionManager sessions, BooleanSupplier reload) {
-        this.config = config;
+    public CinemaCommand(ShowCatalog shows, SessionManager sessions, BooleanSupplier reload) {
+        this.shows = shows;
         this.sessions = sessions;
         this.reload = reload;
     }
@@ -76,7 +78,7 @@ public final class CinemaCommand implements BasicCommand {
         if (args.length >= 1 && args[0].equalsIgnoreCase("reload")) {
             boolean applied = this.reload.getAsBoolean();
             sender.sendMessage(applied
-                ? "§aCrateCinema configuration reloaded. Shows already running are not affected."
+                ? "§aCrateCinema's config.yml reloaded. Shows already running are not affected. Use /ecrates reload for the shows' own settings."
                 : "§cCould not reload; the previous configuration is still in use. See the console.");
             return;
         }
@@ -85,7 +87,7 @@ public final class CinemaCommand implements BasicCommand {
             return;
         }
         sender.sendMessage("§eUsage: /" + LABEL + " preview <show> [tier 0-" + Tiers.MAX + "] | /" + LABEL + " reload");
-        sender.sendMessage("§eShows: " + this.config.showIds());
+        sender.sendMessage("§eShows: " + this.shows.names());
     }
 
     private void preview(CommandSender sender, String[] args) {
@@ -93,9 +95,9 @@ public final class CinemaCommand implements BasicCommand {
             sender.sendMessage("Only players can preview shows.");
             return;
         }
-        Optional<Show> show = this.config.catalog().get(args[1].toLowerCase(Locale.ROOT));
+        Optional<Show> show = this.shows.get(args[1].toLowerCase(Locale.ROOT));
         if (show.isEmpty()) {
-            sender.sendMessage("§cUnknown show '" + args[1] + "'. Shows: " + this.config.showIds());
+            sender.sendMessage("§cUnknown show '" + args[1] + "'. Shows: " + this.shows.names());
             return;
         }
         int tier = Tiers.MAX;
@@ -121,7 +123,7 @@ public final class CinemaCommand implements BasicCommand {
             fillers.add(new RewardView(new ItemStack(material), "", null, Double.NaN));
         }
         ShowRequest request = new ShowRequest(player, anchor(player), List.of(new ShowRound(target, fillers)));
-        this.sessions.play(show.get(), request, () -> { }, PREVIEW_TIERS);
+        this.sessions.play(show.get(), request, reason -> { }, PREVIEW_TIERS);
     }
 
     /** The item's own name if it has one, otherwise its material written as words. */
@@ -159,7 +161,7 @@ public final class CinemaCommand implements BasicCommand {
             return List.of("preview", "reload").stream().filter(sub -> sub.startsWith(args[0].toLowerCase(Locale.ROOT))).toList();
         }
         if (args.length == 2 && args[0].equalsIgnoreCase("preview")) {
-            return this.config.showIds().stream().filter(id -> id.startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
+            return this.shows.names().stream().filter(id -> id.startsWith(args[1].toLowerCase(Locale.ROOT))).toList();
         }
         if (args.length == 3 && args[0].equalsIgnoreCase("preview")) {
             return List.of("0", "1", "2", "3");

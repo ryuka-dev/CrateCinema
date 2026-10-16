@@ -39,20 +39,24 @@ public final class CrateCinemaPlugin extends JavaPlugin {
         this.sessions = sessionManager;
         this.getServer().getPluginManager().registerEvents(new SessionListener(sessionManager), this);
 
-        CinemaCommand command = new CinemaCommand(liveConfig, sessionManager, this::reload);
-        this.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS,
-            event -> event.registrar().register(CinemaCommand.LABEL, CinemaCommand.DESCRIPTION, command));
-
         BedrockPlayers bedrock = this.bedrockPlayers();
+        AnimationRegistration animations;
         try {
-            new AnimationRegistration(this, liveConfig, sessionManager).start();
-            ExcellentCratesIntegration excellentCrates = new ExcellentCratesIntegration(this, sessionManager, liveConfig, bedrock);
+            // Before ExcellentCrates is enabled: it registers our shows while it starts up.
+            animations = new AnimationRegistration(this, sessionManager, bedrock);
+            animations.start();
+            ExcellentCratesIntegration excellentCrates = new ExcellentCratesIntegration(this, sessionManager, liveConfig);
             excellentCrates.start();
             this.integration = excellentCrates;
         } catch (LinkageError error) {
-            this.getLogger().log(Level.SEVERE, "Cannot load ExcellentCrates classes. Is ExcellentCrates 7.x installed?", error);
+            this.getLogger().log(Level.SEVERE, "Cannot load ExcellentCrates classes. Is ExcellentCrates 7.2 or newer installed?", error);
             this.getServer().getPluginManager().disablePlugin(this);
+            return;
         }
+
+        CinemaCommand command = new CinemaCommand(animations, sessionManager, this::reload);
+        this.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS,
+            event -> event.registrar().register(CinemaCommand.LABEL, CinemaCommand.DESCRIPTION, command));
     }
 
     @Override
@@ -75,7 +79,7 @@ public final class CrateCinemaPlugin extends JavaPlugin {
             return false;
         }
         if (this.integration != null) {
-            this.integration.checkBindings();
+            this.integration.checkCrates();
         }
         return true;
     }
@@ -87,7 +91,7 @@ public final class CrateCinemaPlugin extends JavaPlugin {
         }
         try {
             BedrockPlayers floodgate = new FloodgateBedrockPlayers();
-            this.getLogger().info("Floodgate found; Bedrock players get the configured Bedrock opening.");
+            this.getLogger().info("Floodgate found; Bedrock players get the text-only simple show.");
             return floodgate;
         } catch (LinkageError | RuntimeException error) {
             this.getLogger().log(Level.WARNING, "Floodgate is installed but its API could not be used; treating everyone as a Java player.", error);

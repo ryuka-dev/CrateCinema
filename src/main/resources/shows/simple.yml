@@ -1,0 +1,10 @@
+# Simple: a text-only show. Bedrock players get it instead of any other show, since their clients
+# cannot show item and block displays; so does everyone once limits.max-concurrent-shows in
+# CrateCinema's config.yml is reached.
+#
+# This file is an ExcellentCrates animation profile. A crate plays it when its animation is set to
+# cratecinema_simple:<file name> (this one is cratecinema_simple:default). Copy it under another file
+# name in this folder for a variant, then run /ecrates reload.
+
+# The name ExcellentCrates shows for this animation in its editor.
+name: Simple

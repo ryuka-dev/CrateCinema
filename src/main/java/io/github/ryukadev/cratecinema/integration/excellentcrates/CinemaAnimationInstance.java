@@ -1,45 +1,43 @@
 package io.github.ryukadev.cratecinema.integration.excellentcrates;
 
+import java.util.UUID;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 
-import org.jspecify.annotations.Nullable;
-
-import io.github.ryukadev.cratecinema.engine.SessionManager;
+import io.github.ryukadev.cratecinema.engine.EndReason;
 import io.github.ryukadev.cratecinema.engine.Show;
 import io.github.ryukadev.cratecinema.engine.ShowRequest;
 import su.nightexpress.excellentcrates.api.animation.AnimationContext;
 import su.nightexpress.excellentcrates.api.animation.AnimationInstance;
 
 /**
- * One reward's show inside an ExcellentCrates animation session. ExcellentCrates starts, ticks
- * and stops it; the show itself runs in our engine. ExcellentCrates' completion callback (which
- * plays the next reward of a batch, or grants them all after the last) runs exactly once, when
- * the show ends or the session is stopped, whichever comes first.
+ * One reward's show inside an ExcellentCrates animation session. ExcellentCrates starts the
+ * session, asks each tick whether it is still running, and stops it when the player quits or
+ * changes world or when it shuts down. The show itself is driven by our engine.
  *
- * <p>ExcellentCrates may call {@link #stop()} more than once, and after the show has already
+ * <p>ExcellentCrates' completion callback (which plays the next reward of a batch, or grants them
+ * all after the last) runs exactly once: when the show ends or the session is stopped, whichever
+ * comes first. ExcellentCrates may call {@link #stop()} more than once, and after the show has
  * completed; both are no-ops here.
  */
 final class CinemaAnimationInstance implements AnimationInstance {
 
-    private final @Nullable Show show;
+    private final Show show;
     private final AnimationContext context;
-    private final SessionManager sessions;
+    private final ShowRuntime runtime;
     private final ShowRequests requests;
-    private final Logger logger;
     private final Runnable onComplete;
+    private final UUID playerId;
 
     private boolean running;
     private boolean completed;
 
-    CinemaAnimationInstance(@Nullable Show show, AnimationContext context, SessionManager sessions,
-                            ShowRequests requests, Logger logger, Runnable onComplete) {
+    CinemaAnimationInstance(Show show, AnimationContext context, ShowRuntime runtime, Runnable onComplete) {
         this.show = show;
         this.context = context;
-        this.sessions = sessions;
-        this.requests = requests;
-        this.logger = logger;
+        this.runtime = runtime;
+        this.requests = runtime.requests().apply(context.rewardPreview());
         this.onComplete = onComplete;
+        this.playerId = context.player().getUniqueId();
     }
 
     @Override
@@ -50,20 +48,21 @@ final class CinemaAnimationInstance implements AnimationInstance {
     @Override
     public void start() {
         this.running = true;
-        if (this.show == null) {
-            this.finish();
+        if (this.runtime.interrupted().isCompleting(this.playerId)) {
+            // A later reward of a batch whose show was interrupted.
+            this.finish(EndReason.SKIPPED);
             return;
         }
         ShowRequest request;
         try {
             request = this.requests.create(this.context);
         } catch (RuntimeException exception) {
-            this.logger.log(Level.SEVERE, "Could not prepare a show; granting the opening without one", exception);
-            this.finish();
+            this.runtime.logger().log(Level.SEVERE, "Could not prepare a show; granting the opening without one", exception);
+            this.finish(EndReason.ERROR);
             return;
         }
-        // The engine runs finish at most once, and at once if the show cannot start.
-        this.sessions.play(this.show, request, this::finish);
+        // The engine calls finish at most once, and at once if the show cannot start.
+        this.runtime.sessions().play(this.show, request, this::finish);
     }
 
     /**
@@ -80,12 +79,12 @@ final class CinemaAnimationInstance implements AnimationInstance {
         if (this.completed) {
             return;
         }
-        this.sessions.handleStop(this.context.player().getUniqueId());
+        this.runtime.sessions().handleStop(this.playerId);
         // In case the engine never had the show.
-        this.finish();
+        this.finish(EndReason.STOPPED);
     }
 
-    private void finish() {
+    private void finish(EndReason reason) {
         if (this.completed) {
             return;
         }
@@ -93,10 +92,18 @@ final class CinemaAnimationInstance implements AnimationInstance {
         // Not running before the callback: it may start the next session for the same player,
         // which ExcellentCrates refuses while this one counts as running.
         this.running = false;
+        if (reason == EndReason.FINISHED) {
+            this.complete();
+        } else {
+            this.runtime.interrupted().complete(this.playerId, this::complete);
+        }
+    }
+
+    private void complete() {
         try {
             this.onComplete.run();
         } catch (RuntimeException exception) {
-            this.logger.log(Level.SEVERE, "ExcellentCrates failed while completing an opening", exception);
+            this.runtime.logger().log(Level.SEVERE, "ExcellentCrates failed while completing an opening", exception);
         }
     }
 }

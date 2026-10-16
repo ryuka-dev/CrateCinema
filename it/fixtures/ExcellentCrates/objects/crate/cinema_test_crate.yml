@@ -37,8 +37,8 @@ cooldowns:
     mode: DAILY
     value: 0
 animation:
-  enabled: false
-  profile: none:null
+  enabled: true
+  profile: cratecinema_cinema_test:default
 effect:
   enabled: true
   profile: helix:default

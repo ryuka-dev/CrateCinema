@@ -15,5 +15,7 @@ public enum EndReason {
     /** The crate plugin is going away or this plugin is being disabled. */
     SHUTDOWN,
     /** The crate plugin ended the show itself. */
-    STOPPED
+    STOPPED,
+    /** The show never started: the viewer was offline, dead or already watching one. */
+    SKIPPED
 }

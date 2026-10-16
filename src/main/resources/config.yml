@@ -1,9 +1,12 @@
 # Writes show start/end and interruptions to the console. Logging only; it does not change how shows behave.
 debug: false
 
+# Bedrock players (detected through Floodgate) always get the text-only simple show: their clients
+# cannot show the item and block displays the other shows are made of.
+
 # Show tier for each ExcellentCrates rarity id, from 0 (plainest) to 3 (grandest).
-# Higher tiers build up longer and end with bigger effects. Each show's file in shows/ sets what
-# the tiers mean for that show.
+# Higher tiers build up longer and end with bigger effects. Each show's animation profile (in
+# ExcellentCrates' objects/animations/cratecinema_<show>/) sets what the tiers mean for that show.
 tiers:
   common: 0
   uncommon: 0
@@ -27,17 +30,10 @@ effects:
   particle-density: 1.0
 
 limits:
-  # At most this many shows run at once. Further openings get the normal ExcellentCrates opening.
+  # At most this many shows run at once. Further openings get the text-only simple show.
   max-concurrent-shows: 50
   # Safety net: a show still running after this many seconds is ended and its reward granted.
   max-show-seconds: 30
-
-bedrock:
-  # What Bedrock players get (detected through Floodgate; ignored without it). Their clients
-  # cannot show the item and block displays the shows are made of.
-  #   simple       - a text-only show.
-  #   crate-plugin - the normal ExcellentCrates opening, as if the crate were not bound.
-  mode: simple
 
 messages:
   # Sent when a player tries to open a crate while still watching a show. '&' colour codes are supported.

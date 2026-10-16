@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -18,7 +19,7 @@ import org.jspecify.annotations.Nullable;
  * Owns every running show and the plugin's only tick task.
  *
  * <p>Guarantee: the completion callback handed to {@link #play} runs exactly once, whatever
- * happens to the show. The crate plugin has already taken the player's key by the time a show
+ * happens to the show, and is told why the show ended. The crate plugin has already taken the player's key by the time a show
  * starts, so a lost callback would mean a lost reward.
  *
  * <p>All methods must be called on the main thread.
@@ -60,19 +61,19 @@ public final class SessionManager {
      * Plays a show and runs {@code onComplete} when it ends. Takes ownership of
      * {@code onComplete} even if the show cannot start; in that case it runs immediately.
      */
-    public void play(Show show, ShowRequest request, Runnable onComplete) {
+    public void play(Show show, ShowRequest request, Consumer<EndReason> onComplete) {
         this.play(show, request, onComplete, this.settings.get().tiers());
     }
 
-    /** As {@link #play(Show, ShowRequest, Runnable)}, with a tier mapping other than the configured one. */
-    public void play(Show show, ShowRequest request, Runnable onComplete, Tiers tiers) {
+    /** As {@link #play(Show, ShowRequest, Consumer)}, with a tier mapping other than the configured one. */
+    public void play(Show show, ShowRequest request, Consumer<EndReason> onComplete, Tiers tiers) {
         Player viewer = request.viewer();
         UUID viewerId = viewer.getUniqueId();
         Completion completion = new Completion(onComplete, this.logger);
 
         if (!viewer.isOnline() || viewer.isDead() || this.isBusy(viewerId)) {
             this.diagnostics.debug(() -> "Skipping show for " + viewer.getName() + ": viewer not available");
-            completion.run();
+            completion.run(EndReason.SKIPPED);
             return;
         }
 
@@ -99,7 +100,7 @@ public final class SessionManager {
         // plugin itself does for its own animations on quit.
         Completion held = this.heldCompletions.remove(playerId);
         if (held != null) {
-            held.run();
+            held.run(EndReason.DEATH);
         }
     }
 
@@ -111,7 +112,7 @@ public final class SessionManager {
         this.end(playerId, EndReason.STOPPED);
         Completion held = this.heldCompletions.remove(playerId);
         if (held != null) {
-            held.run();
+            held.run(EndReason.DEATH);
         }
     }
 
@@ -142,7 +143,7 @@ public final class SessionManager {
         for (UUID playerId : List.copyOf(this.heldCompletions.keySet())) {
             Completion held = this.heldCompletions.remove(playerId);
             if (held != null) {
-                held.run();
+                held.run(EndReason.DEATH);
             }
         }
         this.stopTicking();
@@ -162,7 +163,7 @@ public final class SessionManager {
             this.heldCompletions.put(playerId, session.completion());
             this.ensureTicking();
         } else {
-            session.completion().run();
+            session.completion().run(reason);
         }
     }
 
@@ -206,7 +207,7 @@ public final class SessionManager {
             Completion held = this.heldCompletions.remove(playerId);
             if (held != null) {
                 this.diagnostics.debug(() -> "Granting held reward for " + player.getName() + " after respawn");
-                held.run();
+                held.run(EndReason.DEATH);
             }
         }
     }

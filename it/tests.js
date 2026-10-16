@@ -38,27 +38,6 @@ async function openBatchOfThree(b) {
   await b.clickWindow(4, 0, 0);
 }
 
-/** The native_test crate placed by "node setup.js native_test -3", or null (and a note) if it is not. */
-function nativeCrateOrSkip() {
-  const file = h.positionFile('native_test');
-  if (!fs.existsSync(file)) { console.log('skipped: run "node setup.js native_test -3" first'); return null; }
-  const position = JSON.parse(fs.readFileSync(file, 'utf8'));
-  const block = new h.Vec3(position.x, position.y, position.z);
-  return { block, center: block.offset(0.5, 0.5, 0.5), stand: position.stand };
-}
-
-async function prepAt(name, target) {
-  await h.cmd(`clear ${name}`);
-  await h.cmd(`tp ${name} ${target.stand.x + 0.5} ${target.stand.y} ${target.stand.z + 0.5} 0 0`);
-  await h.cmd(`cratekey give ${name} ${h.KEY_ID} 1`);
-  await h.sleep(800);
-}
-
-async function openAt(b, target) {
-  await b.lookAt(target.center, true);
-  await b.activateBlock(b.blockAt(target.block));
-}
-
 const started = (log, name) => log.includes(`Started show 'cinema_test' for ${name}`);
 const ended = (log, name, reason) => new RegExp(`Ended show 'cinema_test' for [0-9a-f-]+: ${reason}`).test(log);
 
@@ -66,17 +45,36 @@ const ended = (log, name, reason) => new RegExp(`Ended show 'cinema_test' for [0
 // Bukkit /reload is unsupported (see README); not in the default run.
 const MANUAL = ['bukkitReload'];
 
-const PLUGIN_DIR = path.join(h.RUN_DIR, 'plugins', 'CrateCinema');
+const PLUGINS_DIR = path.join(h.RUN_DIR, 'plugins');
+const CONFIG = 'CrateCinema/config.yml';
+const ORBIT_PROFILE = 'ExcellentCrates/objects/animations/cratecinema_orbit/default.yml';
+const TEST_CRATE = `ExcellentCrates/objects/crate/${h.CRATE_ID}.yml`;
 
 /**
- * Runs body with edited CrateCinema config files, then restores them and reloads.
- * edits: { 'config.yml': [[regex, replacement], ...], 'shows/orbit.yml': [...] }
+ * A top-level YAML key with its value, written on one line ("key: [1, 2]") or, as saving the file
+ * writes lists, one item per line ("key:
+- 1
+- 2").
+ */
+const yamlValue = (key) => new RegExp(`^${key}:(?: .*|(?:\n- .*)+)`, 'm');
+
+/** Reloads CrateCinema, and ExcellentCrates (which owns the shows' profiles) when one of its files is involved. */
+async function reloadFor(files) {
+  const reply = await h.cmd('cratecinema reload');
+  if (!reply.includes('reloaded')) throw new Error('reload failed: ' + reply);
+  if (files.some(file => file.startsWith('ExcellentCrates/'))) await h.cmd('ecrates reload');
+}
+
+/**
+ * Runs body with edited config files, then restores them and reloads.
+ * edits: { [path under plugins/]: [[regex, replacement], ...] }, for example
+ * { [CONFIG]: [[/audience: viewer/, 'audience: nearby']], [ORBIT_PROFILE]: [...] }
  */
 async function withConfig(edits, body) {
   const originals = {};
   try {
     for (const [file, changes] of Object.entries(edits)) {
-      const full = path.join(PLUGIN_DIR, file);
+      const full = path.join(PLUGINS_DIR, file);
       originals[full] = fs.readFileSync(full, 'utf8');
       let text = originals[full];
       for (const [pattern, replacement] of changes) {
@@ -85,12 +83,11 @@ async function withConfig(edits, body) {
       }
       fs.writeFileSync(full, text);
     }
-    const reply = await h.cmd('cratecinema reload');
-    if (!reply.includes('reloaded')) throw new Error('reload failed: ' + reply);
+    await reloadFor(Object.keys(edits));
     await body();
   } finally {
     for (const [full, text] of Object.entries(originals)) fs.writeFileSync(full, text);
-    await h.cmd('cratecinema reload');
+    await reloadFor(Object.keys(edits));
   }
 }
 
@@ -226,28 +223,36 @@ const tests = {
     await h.waitFor(() => h.rewards(b) === 1, SHOW_MS + 2000);
   },
 
-  // Several keys make ExcellentCrates ask how many to open; slot 4 of its menu is "3".
+  // Several keys make ExcellentCrates ask how many to open; slot 4 of its menu is "3". It plays
+  // one session per reward, one after another, and grants them all after the last.
   async batch() {
     const b = await bot('Bot1'); await prep('Bot1', 3);
     const mark = h.logMark();
     await openBatchOfThree(b);
-    h.check('batch: one session with 3 rounds', await h.waitFor(() => h.logSince(mark).includes('for Bot1 (3 reward(s))'), 3000));
+    const startedCount = () => (h.logSince(mark).match(/Started show 'cinema_test' for Bot1/g) || []).length;
+    h.check('batch: first round starts', await h.waitFor(() => startedCount() === 1, 3000));
     h.check('batch: 3 keys taken up front', await h.waitFor(() => h.keys(b) === 0, 2000), `keys=${h.keys(b)}`);
     await h.sleep(5000);
     h.check('batch: no reward mid-batch (granted together at the end)', h.rewards(b) === 0, `rewards=${h.rewards(b)}`);
-    h.check('batch: all 3 rewards after the last round', await h.waitFor(() => h.rewards(b) === 3, 9000), `rewards=${h.rewards(b)}`);
-    h.check('batch: ended once as FINISHED', (h.logSince(mark).match(/Ended show/g) || []).length === 1);
+    h.check('batch: all 3 rewards after the last round', await h.waitFor(() => h.rewards(b) === 3, 12000), `rewards=${h.rewards(b)}`);
+    const ends = h.logSince(mark).match(/Ended show 'cinema_test' for [0-9a-f-]+: \w+/g) || [];
+    h.check('batch: 3 rounds, each FINISHED', startedCount() === 3 && ends.length === 3 && ends.every(e => e.endsWith('FINISHED')),
+      `started=${startedCount()} ended=${JSON.stringify(ends.map(e => e.split(': ')[1]))}`);
   },
 
+  // Interrupting one round ends the batch: the remaining rounds do not play and every reward is granted.
   async batchInterrupt() {
     const b = await bot('Bot1'); await prep('Bot1', 3);
     const mark = h.logMark();
     await openBatchOfThree(b);
-    await h.waitFor(() => h.logSince(mark).includes('for Bot1 (3 reward(s))'), 3000);
-    await h.sleep(4500); // inside round 2
+    const startedCount = () => (h.logSince(mark).match(/Started show 'cinema_test' for Bot1/g) || []).length;
+    await h.waitFor(() => startedCount() === 2, 8000); // inside round 2
+    await h.sleep(500);
     await h.cmd('execute as Bot1 at Bot1 run tp @s ~60 ~ ~');
     h.check('batchInterrupt: ended as TELEPORT', await h.waitFor(() => ended(h.logSince(mark), 'Bot1', 'TELEPORT'), 1500));
     h.check('batchInterrupt: all 3 rewards granted at once', await h.waitFor(() => h.rewards(b) === 3, 2000), `rewards=${h.rewards(b)}`);
+    await h.sleep(1000);
+    h.check('batchInterrupt: the third round does not play', startedCount() === 2, `started=${startedCount()}`);
   },
 
   // The orbit show on the showcase crate (node setup.js showcase 3). Skipped if that crate is not set up.
@@ -285,56 +290,14 @@ const tests = {
       `hologram entities=${hologramIds().length}`);
   },
 
-  // The test show as an ExcellentCrates animation type: the native_test crate selects
-  // cratecinema_cinema_test:default in its own animation settings and is not in bindings.yml
-  // (node setup.js native_test -3). Skipped if that crate is not set up.
-  async native() {
-    const nativeCrate = nativeCrateOrSkip();
-    if (!nativeCrate) return;
+  // Every show is an ExcellentCrates animation type with a default profile file.
+  async profiles() {
     const whole = h.logSince(0);
-    h.check('native: show registered as an animation type', whole.includes('Registered 1 show(s) as ExcellentCrates animation types'));
-    h.check('native: ExcellentCrates wrote its profile file',
-      fs.existsSync(path.join(h.RUN_DIR, 'plugins', 'ExcellentCrates', 'objects', 'animations', 'cratecinema_cinema_test', 'default.yml')));
-    h.check('native: no missing-profile warning', !/No animation profile found|No instantiator found/.test(whole));
-
-    const b = await bot('Bot1'); await prepAt('Bot1', nativeCrate);
-    const mark = h.logMark();
-    await openAt(b, nativeCrate);
-    h.check('native: show starts', await h.waitFor(() => started(h.logSince(mark), 'Bot1'), 2000));
-    h.check('native: key taken at start', await h.waitFor(() => h.keys(b) === 0, 1500), `keys=${h.keys(b)}`);
-    h.check('native: viewer sees the display entity', await h.waitFor(() => h.displaysNear(b, nativeCrate.center) === 1, 1500));
-    h.check('native: no reward before the show ends', h.rewards(b) === 0, `rewards=${h.rewards(b)}`);
-    h.check('native: reward granted when show ends', await h.waitFor(() => h.rewards(b) === 1, SHOW_MS + 2000), `rewards=${h.rewards(b)}`);
-    h.check('native: ended as FINISHED', ended(h.logSince(mark), 'Bot1', 'FINISHED'));
-    h.check('native: display entity removed', await h.waitFor(() => h.displaysNear(b, nativeCrate.center) === 0, 1500));
-    await h.sleep(1000);
-    h.check('native: exactly one reward', h.rewards(b) === 1, `rewards=${h.rewards(b)}`);
-  },
-
-  // Quitting mid-show: ExcellentCrates stops the session and our own listener ends the show; the
-  // opening must complete exactly once.
-  async nativeQuit() {
-    const nativeCrate = nativeCrateOrSkip();
-    if (!nativeCrate) return;
-    let b = await bot('Bot1'); await prepAt('Bot1', nativeCrate);
-    const mark = h.logMark();
-    await openAt(b, nativeCrate);
-    await h.waitFor(() => started(h.logSince(mark), 'Bot1'), 2000);
-    await h.sleep(1000);
-    await h.quitBot(b); bots.Bot1 = null;
-    await h.sleep(1000);
-    h.check('nativeQuit: show ended', /Ended show 'cinema_test' for [0-9a-f-]+: (QUIT|STOPPED)/.test(h.logSince(mark)));
-    b = await bot('Bot1');
-    await h.sleep(1500);
-    h.check('nativeQuit: exactly one reward after rejoin', h.rewards(b) === 1, `rewards=${h.rewards(b)}`);
-    h.check('nativeQuit: no display left', h.displaysNear(b, nativeCrate.center) === 0);
-    // A new opening must not be refused as "still watching".
-    await h.cmd(`cratekey give Bot1 ${h.KEY_ID} 1`);
-    await h.sleep(800);
-    const again = h.logMark();
-    await openAt(b, nativeCrate);
-    h.check('nativeQuit: can open again afterwards', await h.waitFor(() => started(h.logSince(again), 'Bot1'), 2000));
-    await h.waitFor(() => h.rewards(b) === 2, SHOW_MS + 2000);
+    h.check('profiles: shows registered as animation types', whole.includes('Registered 6 shows as ExcellentCrates animation types'));
+    const missing = ['cinema_test', 'simple', 'orbit', 'starfall', 'cards', 'rift'].filter(show =>
+      !fs.existsSync(path.join(PLUGINS_DIR, 'ExcellentCrates', 'objects', 'animations', `cratecinema_${show}`, 'default.yml')));
+    h.check('profiles: ExcellentCrates wrote a default profile for each', missing.length === 0, `missing=${missing}`);
+    h.check('profiles: no missing-profile warning', !/No animation profile found|No instantiator found/.test(whole));
   },
 
   // Every show through /cratecinema preview at the lowest and highest tier: it must finish, leave
@@ -379,31 +342,48 @@ const tests = {
 
   async configReload() {
     const b = await bot('Bot1');
-    await withConfig({ 'bindings.yml': [[/cinema_test_crate: cinema_test/, 'cinema_test_crate: simple']] }, async () => {
+    // A crate switches show through its own ExcellentCrates animation setting.
+    await withConfig({ [TEST_CRATE]: [[/profile: cratecinema_cinema_test:default/, 'profile: cratecinema_simple:default']] }, async () => {
       await prep('Bot1');
       const mark = h.logMark();
       await open(b);
-      h.check('configReload: new binding applies without a restart', await h.waitFor(() => h.logSince(mark).includes("Started show 'simple' for Bot1"), 2000));
+      h.check("configReload: switching the crate's animation applies after /ecrates reload",
+        await h.waitFor(() => h.logSince(mark).includes("Started show 'simple' for Bot1"), 2000));
       h.check('configReload: simple show grants', await h.waitFor(() => h.rewards(b) === 1, 10000), `rewards=${h.rewards(b)}`);
     });
-    // An invalid value: warned about, default used, reload still applied.
-    const mark = h.logMark();
-    await withConfig({ 'shows/orbit.yml': [[/spin-ticks: .*/, 'spin-ticks: lots']] }, async () => {
-      h.check('configReload: invalid value is reported', /orbit\.yml: 'spin-ticks' should be/.test(h.logSince(mark)));
+    // An invalid value in a profile: warned about, default used.
+    let mark = h.logMark();
+    await withConfig({ [ORBIT_PROFILE]: [[yamlValue('spin-ticks'), 'spin-ticks: lots']] }, async () => {
+      h.check('configReload: invalid profile value is reported', /animation cratecinema_orbit:default: 'spin-ticks' should be/.test(h.logSince(mark)));
+    });
+    // A second profile of a show is a variant crates and previews can use.
+    const variant = path.join(PLUGINS_DIR, 'ExcellentCrates', 'objects', 'animations', 'cratecinema_orbit', 'fast.yml');
+    fs.writeFileSync(variant, fs.readFileSync(path.join(PLUGINS_DIR, ORBIT_PROFILE), 'utf8').replace(/^name: .*/m, 'name: Orbit Fast'));
+    try {
+      await h.cmd('ecrates reload');
+      h.check('configReload: a variant profile is listed', (await h.cmd('cratecinema')).includes('orbit:fast'));
+    } finally {
+      fs.unlinkSync(variant);
+      await h.cmd('ecrates reload');
+    }
+    // An invalid value in config.yml.
+    mark = h.logMark();
+    await withConfig({ [CONFIG]: [[/max-show-seconds: \d+/, 'max-show-seconds: lots']] }, async () => {
+      h.check('configReload: invalid config value is reported', /config\.yml: 'limits.max-show-seconds' should be/.test(h.logSince(mark)));
     });
   },
 
   async limits() {
     const b1 = await bot('Bot1'); const b2 = await bot('Bot2');
-    await withConfig({ 'config.yml': [[/max-concurrent-shows: \d+/, 'max-concurrent-shows: 1']] }, async () => {
+    await withConfig({ [CONFIG]: [[/max-concurrent-shows: \d+/, 'max-concurrent-shows: 1']] }, async () => {
       await prep('Bot1', 1, -1); await prep('Bot2', 1, 1);
       const mark = h.logMark();
       await open(b1);
       await h.waitFor(() => started(h.logSince(mark), 'Bot1'), 2000);
       await open(b2);
       await h.sleep(1000);
-      h.check('limits: second opening gets no show at the limit', !started(h.logSince(mark), 'Bot2'));
-      h.check('limits: and is granted by ExcellentCrates at once', h.rewards(b2) === 1 && h.keys(b2) === 0, `rewards=${h.rewards(b2)} keys=${h.keys(b2)}`);
+      h.check('limits: second opening gets the simple show at the limit', h.logSince(mark).includes("Started show 'simple' for Bot2"));
+      h.check('limits: and is granted when it ends', await h.waitFor(() => h.rewards(b2) === 1, 10000) && h.keys(b2) === 0, `rewards=${h.rewards(b2)} keys=${h.keys(b2)}`);
       h.check('limits: the first show still completes', await h.waitFor(() => h.rewards(b1) === 1, SHOW_MS + 2000));
     });
   },
@@ -415,8 +395,8 @@ const tests = {
     const block = new h.Vec3(showcase.x, showcase.y, showcase.z);
     const b = await bot('Bot1');
     await withConfig({
-      'config.yml': [[/max-show-seconds: \d+/, 'max-show-seconds: 5']],
-      'shows/orbit.yml': [[/hold-ticks: .*/, 'hold-ticks: 200']],
+      [CONFIG]: [[/max-show-seconds: \d+/, 'max-show-seconds: 5']],
+      [ORBIT_PROFILE]: [[yamlValue('hold-ticks'), 'hold-ticks: 200']],
     }, async () => {
       await h.cmd('clear Bot1');
       await h.cmd(`tp Bot1 ${showcase.stand.x + 0.5} ${showcase.stand.y} ${showcase.stand.z + 0.5} 0 0`);
@@ -434,7 +414,7 @@ const tests = {
 
   async audience() {
     const b1 = await bot('Bot1'); const b2 = await bot('Bot2');
-    await withConfig({ 'config.yml': [[/audience: viewer/, 'audience: nearby']] }, async () => {
+    await withConfig({ [CONFIG]: [[/audience: viewer/, 'audience: nearby']] }, async () => {
       await prep('Bot1', 1, -1); await prep('Bot2', 0, 1);
       const mark = h.logMark();
       await open(b1);
@@ -463,7 +443,7 @@ const tests = {
     await b.lookAt(crateCenter, true);
     const normal = await countParticles(14);
     let none = -1;
-    await withConfig({ 'config.yml': [[/particle-density: [\d.]+/, 'particle-density: 0']] }, async () => {
+    await withConfig({ [CONFIG]: [[/particle-density: [\d.]+/, 'particle-density: 0']] }, async () => {
       none = await countParticles(14);
     });
     h.check('particles: density 0 sends no show particles', normal > 0 && none === 0, `normal=${normal} with density 0=${none}`);

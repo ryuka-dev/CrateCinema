@@ -9,24 +9,25 @@ plugin's debug log.
 1. `./gradlew runServer` once, accept the Minecraft EULA in `run/eula.txt` yourself, let the
    server finish starting, then `stop` it.
 2. `cd it && npm install && npm run prepare-server`. This writes `run/server.properties` (offline
-   mode, port 25590, RCON on 25591, bound to 127.0.0.1), the test crate, its rewards and key,
-   and the binding. It also enables debug logging and turns off ExcellentCrates' interaction
-   cooldown.
+   mode, port 25590, RCON on 25591, bound to 127.0.0.1), the test crate (its ExcellentCrates
+   animation set to `cratecinema_cinema_test:default`), its rewards and key. It also enables debug
+   logging, turns off ExcellentCrates' interaction cooldown, and makes a normal opening with several
+   keys ask how many to open (ExcellentCrates 7.2 only asks on a sneak opening by default).
 3. `./gradlew runServer` again and wait for `Done`.
 4. `npm run setup` (again after every `prepare-server`, which resets the crate files and so
    unlinks the blocks). A bot places and links the test crate block. For visual
    checks, `node setup.js showcase 3` places the `showcase` crate (eight rewards across all five
-   rarities, bound to `orbit`) three blocks to the right, and `node setup.js csgo_compare 6` places
-   `csgo_compare` (the same rewards with ExcellentCrates' own CSGO animation) for comparison.
-   `node setup.js native_test -3` places `native_test`, which selects the test show through
-   ExcellentCrates' own animation setting.
+   rarities, animation `cratecinema_orbit:default`) three blocks to the right, and
+   `node setup.js csgo_compare 6` places `csgo_compare` (the same rewards with ExcellentCrates' own
+   CSGO animation) for comparison. Offsets are from the test crate.
 5. `npm test` runs every scenario except `bukkitReload`. Run single scenarios with
    `node tests.js quit death`.
 
 ### Other Minecraft versions
 
-`it/check-version.sh <server version> <bot version>` runs everything against another Minecraft
-version, in its own `run-<version>/` directory. The bots support `1.21.9`, `1.21.10`, `1.21.11` and
+`it/check-version.sh <server version> <bot version> [ExcellentCrates jar]` runs everything against
+another Minecraft version, in its own `run-<version>/` directory. With a jar, that ExcellentCrates
+build replaces the Modrinth release, in `run-<version>-<jar name>/`. The bots support `1.21.9`, `1.21.10`, `1.21.11` and
 `26.1` (which also speaks 26.1.2's protocol). Newer servers need a real client: joining through
 ViaBackwards does not work, because it mistranslates the bots' movement packets and the server kicks
 them.
@@ -44,14 +45,13 @@ them.
 | double | A second opening while watching is refused before any key is taken |
 | fastopen | A sneak (fast) opening is left to ExcellentCrates |
 | ecreload | `/ecrates reload` mid-show does not break the show or the hook |
-| batch | A 3× opening plays 3 rounds in one session and grants all rewards at the end |
-| batchInterrupt | Interrupting a batch grants all of its rewards |
+| batch | A 3× opening: ExcellentCrates plays one show per reward, one after another, and grants all three after the last |
+| batchInterrupt | Interrupting a round of a batch skips the rest and grants all of its rewards at once |
 | orbit | On the showcase crate: the ring spawns, the crate hologram is hidden from the viewer and comes back afterwards, and the reward arrives at the end |
-| native | On the `native_test` crate, which selects `cratecinema_cinema_test:default` as its ExcellentCrates animation instead of a binding: the show is registered as an animation type, ExcellentCrates writes its profile file, and the opening plays and grants exactly once |
-| nativeQuit | Quitting mid-show on `native_test` completes the opening exactly once, and the player can open again afterwards |
+| profiles | Every show is registered as an ExcellentCrates animation type and has a default profile file |
 | previews | Every show at tiers 0 and 3 through `/cratecinema preview`: each finishes, logs no errors and leaves no display entities on the server |
-| configReload | Rebinding a crate takes effect after `/cratecinema reload` without a restart; an invalid value is reported |
-| limits | With `max-concurrent-shows: 1`, a second opening gets the normal ExcellentCrates opening |
+| configReload | Switching a crate's animation to another show takes effect after `/ecrates reload`; invalid values in a profile and in `config.yml` are reported; a second profile of a show (`orbit:fast`) is picked up |
+| limits | With `max-concurrent-shows: 1`, a second opening gets the simple show |
 | timeout | A show that would run past `max-show-seconds` is ended by the limit and still grants |
 | audience | With `audience: nearby`, a player next to the crate sees someone else's show |
 | particles | With `particle-density: 0`, the viewer receives no show particles |
@@ -59,7 +59,8 @@ them.
 
 Stopping the server and a hard kill mid-show need a server restart, so they are run by hand
 with `node stopcheck.js open`, then stopping or killing the server, then restarting it and
-running `node stopcheck.js after`.
+running `node stopcheck.js after`. Both take a crate position name as a second argument
+(default `crate`).
 
 For a visual check with a real client, `node watch.js` puts a bot called `Watcher` next to the
 crate for 20 minutes. It logs every change in the number of show entities it receives, so it
@@ -70,10 +71,8 @@ should stay at 0 while someone else opens the crate.
 Needs a Bedrock client. Put Geyser-Spigot and Floodgate (from download.geysermc.org) and
 ViaVersion into `run/plugins/`, set `auth-type: floodgate` in `plugins/Geyser-Spigot/config.yml`,
 and restart. ViaVersion is needed because Geyser connects as the newest Java version. Join on
-`127.0.0.1:19132` and open a bound crate:
-
-- `bedrock.mode: crate-plugin`: no show starts; ExcellentCrates grants the reward directly.
-- `bedrock.mode: simple`: the text-only show plays, and the reward arrives when it ends.
+`127.0.0.1:19132` and open the test crate: the text-only simple show plays, and the reward arrives
+when it ends. A Java player opening the same crate gets its own show.
 
 ## Known results
 

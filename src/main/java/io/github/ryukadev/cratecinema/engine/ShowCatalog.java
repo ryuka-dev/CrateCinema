@@ -1,28 +1,15 @@
 package io.github.ryukadev.cratecinema.engine;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 /**
- * The shows that crates can be bound to, by id.
+ * The configured shows that can be previewed, by name.
  */
-public final class ShowCatalog {
+public interface ShowCatalog {
 
-    private final Map<String, Show> shows = new LinkedHashMap<>();
+    /** Every name {@link #get} accepts, sorted. */
+    List<String> names();
 
-    public void register(Show show) {
-        if (this.shows.putIfAbsent(show.id(), show) != null) {
-            throw new IllegalArgumentException("Duplicate show id: " + show.id());
-        }
-    }
-
-    public Optional<Show> get(String id) {
-        return Optional.ofNullable(this.shows.get(id));
-    }
-
-    public Set<String> ids() {
-        return Set.copyOf(this.shows.keySet());
-    }
+    Optional<Show> get(String name);
 }

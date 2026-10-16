@@ -31,7 +31,6 @@ fs.copyFileSync(path.join(fixtures, 'server.properties'), path.join(run, 'server
 console.log('wrote server.properties');
 copyTree(path.join(fixtures, 'ExcellentCrates'), path.join(run, 'plugins', 'ExcellentCrates'));
 fs.mkdirSync(path.join(run, 'plugins', 'CrateCinema'), { recursive: true });
-copyTree(path.join(fixtures, 'CrateCinema'), path.join(run, 'plugins', 'CrateCinema'));
 
 // Our default config, with debug logging on: the tests read our debug lines.
 fs.copyFileSync(path.join(__dirname, '..', 'src', 'main', 'resources', 'config.yml'), path.join(run, 'plugins', 'CrateCinema', 'config.yml'));

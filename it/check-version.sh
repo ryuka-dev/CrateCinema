@@ -56,7 +56,7 @@ echo "== testing on $MC with a $BOT bot"
 start_server
 grep -E "Enabling CrateCinema|Hooked into|Registered|animation profiles|ERROR" "$RUN/logs/latest.log" | head -8
 status=0
-node it/setup.js > /dev/null && node it/setup.js showcase 3 > /dev/null && node it/setup.js native_test -3 > /dev/null && node it/tests.js || status=$?
+node it/setup.js > /dev/null && node it/setup.js showcase 3 > /dev/null && node it/tests.js || status=$?
 echo "server log errors: $(grep -cE 'SEVERE|ERROR|Exception' "$RUN/logs/latest.log" || true)"
 stop_server
 exit $status

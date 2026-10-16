@@ -1,0 +1,8 @@
+# Test show: a single reward item grows, spins and fades. Meant for checking a setup, not for players.
+#
+# This file is an ExcellentCrates animation profile. A crate plays it when its animation is set to
+# cratecinema_cinema_test:<file name> (this one is cratecinema_cinema_test:default). Copy it under another file
+# name in this folder for a variant, then run /ecrates reload.
+
+# The name ExcellentCrates shows for this animation in its editor.
+name: CrateCinema Test
