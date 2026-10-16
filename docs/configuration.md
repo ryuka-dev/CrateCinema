@@ -1,57 +1,87 @@
 # Configuration
 
-All files are in `plugins/CrateCinema/`. After editing any of them, run `/cratecinema reload`; there
-is no need to restart. Shows that are already playing finish with the settings they started with.
+CrateCinema's shows are ExcellentCrates animations. A crate plays a show when its ExcellentCrates
+animation is set to it, and each show's settings are ExcellentCrates animation profiles. The few
+settings that apply to every show are in `plugins/CrateCinema/config.yml`.
 
-A value that is missing or invalid is replaced by its default, and the console says which one.
+| What | Where | Apply changes with |
+|---|---|---|
+| Which show a crate plays | The crate's animation in ExcellentCrates | `/ecrates reload` |
+| A show's settings | `plugins/ExcellentCrates/objects/animations/cratecinema_<show>/` | `/ecrates reload` |
+| Tiers, audience, effects, limits, messages | `plugins/CrateCinema/config.yml` | `/cratecinema reload` |
 
-## Binding crates: `bindings.yml`
+There is no need to restart. Shows that are already playing finish with the settings they started
+with. A value that is missing or invalid is replaced by its default, and the console says which one.
 
-A crate plays a show only if it is listed here. Everything else about the crate (keys, rewards,
-costs, the editor) stays in ExcellentCrates.
+## Choosing a crate's show
+
+Set the crate's animation to one of the shows, in the ExcellentCrates crate editor or in the crate's
+file in `plugins/ExcellentCrates/objects/crate/`:
 
 ```yaml
-bindings:
-  vote_crate: orbit
-  legendary_crate: starfall
+animation:
+  enabled: true
+  profile: cratecinema_starfall:default
 ```
 
-The key is the ExcellentCrates crate id, which is the crate's file name in
-`plugins/ExcellentCrates/objects/crate/` without `.yml`. The value is a show:
+Everything else about the crate (keys, rewards, costs) stays in ExcellentCrates as before.
 
-| Show | What happens |
-|---|---|
-| `orbit` | Rewards from the pool circle above the crate, spin and wink out until the won reward is left, which charges and bursts. |
-| `starfall` | A burning meteor strikes the crate and the reward rises from the impact. Decoy meteors land first at higher tiers. |
-| `cards` | Five cards are shuffled; one steps forward, glows and flips over to show the reward. |
-| `rift` | A portal tear swallows rewards from the pool and pushes the won reward out. |
-| `simple` | Text, particles and sound only. Light, and visible to Bedrock players. |
+| Show | Profile | What happens |
+|---|---|---|
+| Orbit | `cratecinema_orbit:default` | Rewards from the pool circle above the crate, spin and wink out until the won reward is left, which charges and bursts. |
+| Starfall | `cratecinema_starfall:default` | A burning meteor strikes the crate and the reward rises from the impact. Decoy meteors land first at higher tiers. |
+| Cards | `cratecinema_cards:default` | Five cards are shuffled; one steps forward, glows and flips over to show the reward. |
+| Rift | `cratecinema_rift:default` | A portal tear swallows rewards from the pool and pushes the won reward out. |
+| Simple | `cratecinema_simple:default` | Text, particles and sound only. Light, and visible to Bedrock players. |
 
-Try any show at any tier with `/cratecinema preview <show> [tier]` while looking at a block. The
-held item stands in for the reward. Nothing is rolled, taken or granted.
-
-On startup and reload the console warns about bindings to crates that do not exist.
+Try any show at any tier with `/cratecinema preview <show> [tier]` while looking at a block, for
+example `/cratecinema preview starfall 3`. The held item stands in for the reward. Nothing is
+rolled, taken or granted.
 
 ### Things that overlap a show
 
 - **Crate particle effects.** An ExcellentCrates effect such as `helix` is drawn for every player
-  around the crate and cannot be hidden for one player, so it runs through the show. The console
-  warns about bound crates that have one. Turning it off for those crates (`effect.enabled: false`
-  in the crate's file, or in the crate editor) gives the cleanest result.
+  around the crate and cannot be hidden for one player, so it runs through the show. On startup the
+  console warns about crates that play a show and have one. Turning it off for those crates
+  (`effect.enabled: false` in the crate's file, or in the crate editor) gives the cleanest result.
 - **Crate holograms** are hidden from the player watching a show and come back afterwards.
 
 ### Openings that never get a show
 
 - Sneak-clicking a crate (ExcellentCrates' quick open) skips the show on purpose.
-- When `limits.max-concurrent-shows` is reached, further openings get the normal ExcellentCrates
-  opening.
-- Bedrock players get what `bedrock.mode` says (below).
 
 ## Batch openings
 
-When a player opens several at once, the show plays once, for the best reward in the batch (highest
-tier, then the rarest). It is followed by a few seconds showing every reward of the batch together.
-A batch of 20 takes about as long as a single opening.
+When a player opens several at once, ExcellentCrates plays the show once per reward, one after
+another, and grants all the rewards after the last. If one of those shows is interrupted (the player
+quits, dies, teleports away or changes world), the rest are skipped and every reward is granted at
+once.
+
+Since ExcellentCrates 7.2, choosing how many to open is only offered on a sneak-click by default,
+and a sneak-click skips the show. To let players open several at once with a show, set
+`trigger_in_fast_mode_only: false` in `plugins/ExcellentCrates/config/crates.batch.yml`.
+
+## Show settings: animation profiles
+
+Each show keeps its settings in `plugins/ExcellentCrates/objects/animations/cratecinema_<show>/`.
+Every file there is a profile: `default.yml` is `cratecinema_<show>:default`. Copy it under another
+name for a variant, for example a quicker `fast.yml`, run `/ecrates reload`, and set a crate to
+`cratecinema_orbit:fast`. Previews take variants too: `/cratecinema preview orbit:fast`.
+
+Values that differ by tier are lists of four, one per tier: `[tier 0, tier 1, tier 2, tier 3]`. A
+single number applies to every tier. Times are in ticks (20 ticks = 1 second). Every key is
+described in the file itself. The files ExcellentCrates writes put each list item on its own line;
+both ways of writing a list work.
+
+| Show | Settings |
+|---|---|
+| `orbit` | `radius`, `spin-ticks`, `spin-turns`, `charge-ticks`, `hold-ticks` |
+| `starfall` | `meteor-block`, `fall-ticks`, `decoys`, `hold-ticks` |
+| `cards` | `card-item`, `swaps`, `charge-ticks`, `flip-ticks`, `hold-ticks` |
+| `rift` | `tear-block`, `tear-glow`, `charge-ticks`, `hold-ticks` |
+
+Every profile also has `name`, which is how ExcellentCrates lists it in its editor. `simple` has no
+other settings.
 
 ## `config.yml`
 
@@ -100,29 +130,9 @@ limits:
   max-show-seconds: 30
 ```
 
-- `max-concurrent-shows`: further openings get the normal ExcellentCrates opening until a show
-  ends.
+- `max-concurrent-shows`: further openings get the `simple` show until a show ends.
 - `max-show-seconds`: a safety net. A show still running after this long is ended and its reward
   granted. The default shows take 4 to 13 seconds.
-
-### Bedrock players
-
-```yaml
-bedrock:
-  mode: simple
-```
-
-Bedrock clients (through Geyser) cannot show the item and block displays the shows are made of.
-With Floodgate installed, Bedrock players get:
-
-- `simple`: the text-only `simple` show (default);
-- `crate-plugin`: the normal ExcellentCrates opening, as if the crate were not bound.
-
-Without Floodgate this setting has no effect.
-
-Geyser connects to the server as the newest Java version. If the server runs an older version,
-Bedrock players need ViaVersion installed to join at all; this is a Geyser requirement, not
-specific to this plugin.
 
 ### Messages and debugging
 
@@ -132,29 +142,43 @@ messages:
 debug: false
 ```
 
-`already-watching` is sent when a player tries to open a crate while their show is still playing.
-That opening is refused before anything is taken. `debug: true` logs every show's start and end to
-the console.
+`already-watching` is sent when a player tries to open a crate while their show (or a preview) is
+still playing. That opening is refused before anything is taken. `debug: true` logs every show's
+start and end to the console.
 
-## Show settings: `shows/<show>.yml`
+## Bedrock players
 
-Each show has its own file. Values that differ by tier are lists of four, one per tier:
-`[tier 0, tier 1, tier 2, tier 3]`. A single number applies to every tier. Times are in ticks
-(20 ticks = 1 second). Every key is described in the file itself.
+Bedrock clients (through Geyser) cannot show the item and block displays the shows are made of.
+With Floodgate installed, Bedrock players always get the `simple` show instead of the crate's show.
 
-| File | Settings |
-|---|---|
-| `orbit.yml` | `radius`, `spin-ticks`, `spin-turns`, `charge-ticks`, `hold-ticks` |
-| `starfall.yml` | `meteor-block`, `fall-ticks`, `decoys`, `hold-ticks` |
-| `cards.yml` | `card-item`, `swaps`, `charge-ticks`, `flip-ticks`, `hold-ticks` |
-| `rift.yml` | `tear-block`, `tear-glow`, `charge-ticks`, `hold-ticks` |
+Geyser connects to the server as the newest Java version. If the server runs an older version,
+Bedrock players need ViaVersion installed to join at all; this is a Geyser requirement, not
+specific to this plugin.
 
 ## Commands and permissions
 
 | Command | Permission | |
 |---|---|---|
 | `/cratecinema preview <show> [tier]` | `cratecinema.admin` (op) | Play a show on the block you are looking at |
-| `/cratecinema reload` | `cratecinema.admin` (op) | Reload every file |
+| `/cratecinema reload` | `cratecinema.admin` (op) | Reload `config.yml` |
+| `/ecrates reload` | ExcellentCrates' own | Reload crates and the shows' profiles |
+
+## Upgrading from 1.x
+
+2.0 needs ExcellentCrates 7.2.0 or newer.
+
+- **Bindings.** `bindings.yml` is no longer read. On startup the console lists, for each crate in
+  it, the animation profile to set instead. Set them (see [Choosing a crate's show](#choosing-a-crates-show)),
+  run `/ecrates reload`, then delete `bindings.yml` to stop the message. CrateCinema does not change
+  ExcellentCrates' crate files itself.
+- **Show settings.** The first time 2.0 starts, each show's `plugins/CrateCinema/shows/<show>.yml`
+  is copied into its default profile, so your changes carry over. The old files stay but are no
+  longer read; edit the profiles instead.
+- **`bedrock.mode`** is gone: Bedrock players always get the `simple` show. The old setting is
+  ignored.
+- **Openings past `max-concurrent-shows`** get the `simple` show instead of ExcellentCrates' normal
+  opening.
+- **`/cratecinema reload`** only reloads `config.yml`; use `/ecrates reload` for the shows.
 
 ## Notes
 

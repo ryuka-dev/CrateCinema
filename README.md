@@ -3,7 +3,8 @@
 # CrateCinema
 
 Cinematic, in-world opening shows for [ExcellentCrates](https://modrinth.com/plugin/excellentcrates).
-Keys, reward pools and the crate editor stay with ExcellentCrates; this plugin only adds the show.
+The shows are ExcellentCrates animations: pick one for a crate in the crate editor, next to the
+built-in ones. Keys, reward pools and costs stay with ExcellentCrates; this plugin only adds the show.
 
 <p>
   <img src="docs/media/starfall.gif" width="49%" alt="Starfall: a meteor strikes the crate">
@@ -21,27 +22,31 @@ Keys, reward pools and the crate editor stay with ExcellentCrates; this plugin o
 
 - **Private by default**: only the player opening the crate sees their show, so a crowd can open
   the same crate at once. Showing it to nearby players is one setting.
-- **Batch openings stay short**: one show for the best reward, then the whole batch at a glance.
 - **Safe**: ExcellentCrates grants every reward. If a player quits, teleports away or the server
   stops mid-show, the reward is granted at once. Nothing is left in the world after a crash.
 - **Bedrock aware**: with Floodgate, Bedrock players get a text-only show they can actually see.
-- **Configurable**: one file per show, `/cratecinema reload`, and `/cratecinema preview` to try
-  any show at any tier.
+- **Configurable**: each show's settings are ExcellentCrates animation profiles, so one show can
+  have several variants. `/cratecinema preview` tries any show at any tier.
 
 ## Requirements
 
 - Paper 1.21.9 or newer (ExcellentCrates is dropping Spigot support)
 - Java 25 (required by ExcellentCrates 7.x)
-- ExcellentCrates 7.1.0 or newer, with nightcore
+- ExcellentCrates 7.2.0 or newer, with nightcore (CrateCinema 1.x works with ExcellentCrates 7.1)
 
 ## Getting started
 
 1. Install ExcellentCrates and nightcore, then this plugin, and restart.
-2. Bind a crate in `plugins/CrateCinema/bindings.yml`, for example `my_crate: starfall`.
-3. Run `/cratecinema reload`.
+2. Set a crate's animation to a show, in the ExcellentCrates crate editor or in the crate's file:
+   ```yaml
+   animation:
+     enabled: true
+     profile: cratecinema_starfall:default
+   ```
+3. Run `/ecrates reload`.
 
 Shows: `orbit`, `starfall`, `cards`, `rift` and the text-only `simple`. Preview any of them in-game
-with `/cratecinema preview <show> [tier]`. Everything else is in
+with `/cratecinema preview <show> [tier]`. Everything else, including upgrading from 1.x, is in
 [docs/configuration.md](docs/configuration.md).
 
 ## Building
