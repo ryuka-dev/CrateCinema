@@ -39,3 +39,9 @@ edit(path.join(run, 'plugins', 'CrateCinema', 'config.yml'), /^debug: (true|fals
 // ExcellentCrates' 3-second interaction cooldown would race the "second opening" test.
 edit(path.join(run, 'plugins', 'ExcellentCrates', 'config', 'crates.interaction.yml'),
   /(cooldown:\n(?:\s*#.*\n)*\s*enabled: )(true|false)/, '$1false');
+// Since ExcellentCrates 7.2.0 the amount selection only comes up for sneak (fast) openings by
+// default, and those get no show. The batch scenarios need it on a normal opening.
+const batchConfig = path.join(run, 'plugins', 'ExcellentCrates', 'config', 'crates.batch.yml');
+if (/^trigger_in_fast_mode_only: /m.test(fs.readFileSync(batchConfig, 'utf8'))) {
+  edit(batchConfig, /^trigger_in_fast_mode_only: (true|false)/m, 'trigger_in_fast_mode_only: false');
+}
