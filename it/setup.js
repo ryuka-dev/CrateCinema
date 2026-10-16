@@ -13,7 +13,12 @@ const h = require('./harness');
   await h.cmd('gamemode survival Bot1');
   const crateId = process.argv[2] || h.CRATE_ID;
   const dx = Number(process.argv[3] || 0);
-  const origin = bot.entity.position.floored();
+  // Offsets are from the main crate's standing spot, not from wherever the bot logged out (which
+  // is the previous crate's spot); otherwise a negative offset lands on an earlier crate.
+  const mainFile = h.positionFile('crate');
+  const origin = crateId !== h.CRATE_ID && fs.existsSync(mainFile)
+    ? (({ stand }) => new h.Vec3(stand.x, stand.y, stand.z))(JSON.parse(fs.readFileSync(mainFile, 'utf8')))
+    : bot.entity.position.floored();
   const p = origin.offset(dx, 0, 0);
   const chest = p.offset(0, 0, 3);
   // Stand in front of the new crate so it is within reach.

@@ -1,6 +1,7 @@
 // mode=open: open a crate and stop/crash is driven externally. mode=after: rejoin and report.
+// Usage: node stopcheck.js open|after [crate position name, default crate, e.g. native_test]
 const fs = require('fs'); const h = require('./harness');
-const c = JSON.parse(fs.readFileSync(h.positionFile('crate')));
+const c = JSON.parse(fs.readFileSync(h.positionFile(process.argv[3] || 'crate')));
 const v = new h.Vec3(c.x, c.y, c.z);
 (async () => {
   await h.rconConnect();
