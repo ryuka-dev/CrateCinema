@@ -1,16 +1,25 @@
 #!/usr/bin/env bash
 # Runs the integration tests against another Minecraft version, in its own run-<version> directory.
 #
-#   it/check-version.sh <server version> <bot version>
+#   it/check-version.sh <server version> <bot version> [ExcellentCrates jar]
 #
 # <bot version> must be one the bots support (see README) and speak the server's protocol.
+# With an ExcellentCrates jar, that build replaces the Modrinth release, and the run directory is
+# named after both (run-<version>-<jar name>).
 # The Minecraft EULA must already be accepted in run/eula.txt; it is copied to the new directory.
 set -euo pipefail
 
 MC=$1
 BOT=$2
+EC_JAR=${3:-}
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 RUN="run-$MC"
+GRADLE_ARGS=(-PtestMc="$MC")
+if [ -n "$EC_JAR" ]; then
+  EC_JAR=$(cd "$(dirname "$EC_JAR")" && pwd)/$(basename "$EC_JAR")
+  RUN="run-$MC-$(basename "$EC_JAR" .jar)"
+  GRADLE_ARGS+=(-PtestEcJar="$EC_JAR" -PtestRun="$RUN")
+fi
 export CC_RUN=$RUN CC_MC=$BOT
 cd "$ROOT"
 mkdir -p "$RUN/plugins"
@@ -21,7 +30,7 @@ cp it/fixtures/server.properties "$RUN/server.properties"
 PID=""
 start_server() {
   rm -f "$RUN/logs/latest.log"
-  ./gradlew runServer -PtestMc="$MC" --console=plain > "$RUN/gradle-run.log" 2>&1 &
+  ./gradlew runServer "${GRADLE_ARGS[@]}" --console=plain > "$RUN/gradle-run.log" 2>&1 &
   PID=$!
   for _ in $(seq 1 600); do
     if grep -qE "Done \(" "$RUN/logs/latest.log" 2>/dev/null; then return 0; fi

@@ -47,15 +47,26 @@ tasks.processResources {
 // -PtestMc=<version> runs the test server on another Minecraft version, in its own run-<version>
 // directory: a world upgraded to a newer version cannot be opened by an older one.
 val testMc = providers.gradleProperty("testMc").orNull
+// -PtestEcJar=<path> runs the test server with that ExcellentCrates jar instead of the Modrinth
+// release, for checking a build that is not published yet. Pair it with -PtestRun=<directory>:
+// a newer ExcellentCrates may migrate its data so that the release can no longer read it.
+val testEcJar = providers.gradleProperty("testEcJar").orNull
+val testRun = providers.gradleProperty("testRun").orNull
 
 tasks.runServer {
     minecraftVersion(testMc ?: "1.21.9")
-    if (testMc != null) {
-        runDirectory.set(layout.projectDirectory.dir("run-$testMc"))
+    val runDir = testRun ?: testMc?.let { "run-$it" }
+    if (runDir != null) {
+        runDirectory.set(layout.projectDirectory.dir(runDir))
+    }
+    if (testEcJar != null) {
+        pluginJars(file(testEcJar))
     }
     downloadPlugins {
         modrinth("nightcore", nightcoreVersion)
-        modrinth("excellentcrates", excellentCratesVersion)
+        if (testEcJar == null) {
+            modrinth("excellentcrates", excellentCratesVersion)
+        }
         // ExcellentCrates draws crate holograms through packetevents.
         modrinth("packetevents", "2.14.0+spigot")
     }
