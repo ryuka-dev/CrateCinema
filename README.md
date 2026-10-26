@@ -73,3 +73,5 @@ Questions and ideas are welcome on Discord. Bugs are tracked in GitHub issues.
   <a href="https://discord.gg/53SRDaZwVN"><img src="docs/media/support-discord.png" width="49%" alt="Questions or ideas? Join the Discord"></a>
   <a href="https://github.com/ryuka-dev/CrateCinema/issues"><img src="docs/media/support-github.png" width="49%" alt="Found a bug? Open an issue on GitHub"></a>
 </p>
+
+Made by Ryuka. More of my plugins and mods, and how to reach me for custom work: [ryuka.cloud/en](https://ryuka.cloud/en/)
